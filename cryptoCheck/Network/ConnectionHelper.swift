@@ -11,8 +11,10 @@ import Combine
 import Alamofire
 
 class ConnectionMonitorHelper: ConnectionMonitorHelperProtocol {
+    typealias NetworkStatus = NetworkReachabilityManager.NetworkReachabilityStatus
+    
     private(set) lazy var networkMonitor: NetworkReachabilityManager? = NetworkReachabilityManager(host: .pingHost)
-    private(set) lazy var networkStatus: PassthroughSubject<NetworkReachabilityManager.NetworkReachabilityStatus, Never> = PassthroughSubject()
+    private(set) lazy var networkStatus: PassthroughSubject<NetworkStatus, Never> = PassthroughSubject()
 
     func startMonitoring() {
         networkMonitor?.startListening(onQueue: .networkMonitor) { [weak self] status in
