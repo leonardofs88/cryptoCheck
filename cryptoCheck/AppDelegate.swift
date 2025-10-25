@@ -12,6 +12,7 @@ import Factory
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     @LazyInjected(\.connectionHelper) private var connectionHelper
+    @Injected(\.webSocketManager) private var webSocketManager
 
     func application(
         _ application: UIApplication,
@@ -32,6 +33,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when a new scene session is being created.
         // Use this method to select a configuration to create the new scene with.
         return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+    }
+
+    func applicationWillResignActive(_ application: UIApplication) {
+        print("last message:", webSocketManager.lastMessage)
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
