@@ -8,270 +8,288 @@
 import Foundation
 import Combine
 
-class WebSocketManager<T: Codable> {
+enum WebSocketError: Error {
+    case badResponse
+    case invalidURL
+    case disconnected
+    case timeOut
+    case decodeError(String)
+    case unknown(String?)
+}
 
+protocol WebSocketManagerProtocol: NSObject, URLSessionWebSocketDelegate {
+    // swiftlint:disable:next type_name
+    associatedtype T = Codable
+    var cancellables: Set<AnyCancellable> { get }
+    var session: URLSession { get }
+    var webSocketTask: URLSessionWebSocketTask? { get }
+    var lastMessage: URLSessionWebSocketTask.Message? { get }
+    var prices: PassthroughSubject<T?, WebSocketError> { get }
+    var connectionStatePublisher: PassthroughSubject<WebSocketConnectionState, WebSocketError> { get }
+    var webSocketConnectionState: WebSocketConnectionState { get }
+}
+
+class WebSocketManager<T: Codable>: NSObject, URLSessionWebSocketDelegate {
+    private lazy var connectionMonitor = ReachabilityMonitorHelper()
     private lazy var cancellables: Set<AnyCancellable> = []
+    private lazy var session: URLSession = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
     private var webSocketTask: URLSessionWebSocketTask?
     private(set) var lastMessage: URLSessionWebSocketTask.Message?
-    private(set) var prices: PassthroughSubject<T?, Never> = .init()
+    private(set) var managedItem: PassthroughSubject<T?, WebSocketError> = .init()
+    private(set) var webSocketConnectionState: CurrentValueSubject<WebSocketConnectionState, WebSocketError> = .init(.closed(nil))
+    private let endpoint: Endpoint
+    private var timer: Timer?
+    private var retrySendCount = 0
+    private var retryConnectCount = 0
 
-    let session = URLSession(configuration: .default)
-    var counter = 0
+    init(endpoint: Endpoint = .stream) {
+        self.endpoint = endpoint
 
-    init() {
-        setupWebSocket()
+        super.init()
 
-        prices
-            .receive(on: DispatchQueue.main)
-            .sink { value in
-                print("Received Value:",value)
+        observeConnectionMonitor()
+        observeWebSocketConnection()
+
+//        managedItem
+//            .receive(on: RunLoop.main)
+//            .sink(receiveCompletion: { [weak self] completion in
+//                switch completion {
+//                case .finished:
+//                    break
+//                case .failure(let failure):
+//                    self?.disconnect(failure.localizedDescription)
+//                }
+//            }, receiveValue: { item in
+//                if let item {
+//                    print("===== RECEIVED ITEM: \(item) =====")
+//                }
+//            })
+//            .store(in: &cancellables)
+    }
+
+    private func observeWebSocketConnection() {
+        webSocketConnectionState
+            .receive(on: RunLoop.main)
+            .sink { completion in
+                switch completion {
+                case .finished:
+                    break
+                case .failure(let error):
+                    print("===== CONNECTION STATE ERROR: \(error) =====")
+                }
+            } receiveValue: { [weak self] state in
+                switch state {
+                case .closed(let reason):
+                    print("==== CONNECTION STATE CLOSE REASON: \(reason ?? "No reason") =====")
+                case .closing:
+                    print("==== CONNECTION IS CLOSING ====")
+                case .connected:
+                    print("==== CONNECTION IS ESTABLISHED ====")
+                    self?.sendMessage(
+                        with: WebSocketBody(
+                            method: .subscribe,
+                            params: ["adausdt@ticker", "ethusdt@ticker", "btcusdt@ticker"]
+                        )
+                    )
+                case .trying:
+                print("==== TRYING CONNECTION ====")
+                }
             }
             .store(in: &cancellables)
     }
 
-    private func setupWebSocket() {
-        guard let url = WebSocketRequest().getRequest(for: .stream) else { return }
-        guard let subscribeMessage = WebSocketBody(
-            method: .subscribe,
-            params: ["adausdt@ticker", "ethusdt@ticker", "btcusdt@ticker"]
-        ).asString() else { return }
-
-        webSocketTask = session.webSocketTask(with: url)
+    private func observeConnectionMonitor() {
+        print("===== START OBSERVING CONNECTION MONITOR =====")
+        connectionMonitor.startMonitoring()
+        connectionMonitor
+            .networkStatus
+            .receive(on: RunLoop.main)
+            .sink { [weak self] status in
+                guard let self else { return }
+                switch status {
+                case .notReachable:
+                    print("===== CONNECTION MONITOR NOT REACHABLE =====")
+                    disconnect("Retrying connection...")
+                case .reachable:
+                    print("===== CONNECTION MONITOR REACHABLE =====")
+                    self.retrySendCount = 0
+                    self.retryConnectCount = 0
+                    self.setupWebSocket(for: self.endpoint)
+                default:
+                    break
+                }
+            }
+            .store(in: &cancellables)
+    }
+    private func setupWebSocket(for endpoint: Endpoint, portType: Port = .primary) {
+        guard let request = WebSocketRequest(port: portType).getRequest(for: endpoint) else { return }
+        webSocketTask = session.webSocketTask(with: request)
         webSocketTask?.resume()
+        webSocketConnectionState.send(.trying)
+        startPing()
+        sendPing()
+        print("===== WEBSOCKET CONNECTING ON PORT \(portType.rawValue) =====")
+    }
 
-        webSocketTask?.send(.string(subscribeMessage)) { [weak self] error in
+    private func startPing() {
+        DispatchQueue.main.async {
+            self.timer?.invalidate()
+            self.timer = Timer.scheduledTimer(
+                timeInterval: 20.0,
+                target: self,
+                selector: #selector(self.sendPing),
+                userInfo: nil,
+                repeats: true
+            )
+        }
+    }
+
+    @objc private func sendPing() {
+        webSocketTask?.sendPing { [weak self] error in
             if let error {
-                print("subscription error:", error.localizedDescription)
+                print("===== PING ERROR =====")
+                print("===== ERROR: \(error.localizedDescription) =====")
+                self?.disconnect("Retrying...")
+                self?.retryConnectCount += 1
                 return
             }
 
+            print("===== PING SENT =====")
+        }
+    }
+
+    func cancelPing() {
+        DispatchQueue.main.async {
+            print("===== PING INVALIDATED =====")
+            self.timer?.invalidate()
+            self.timer = nil
+        }
+    }
+
+    private func sendMessage(with body: WebSocketBody) {
+        guard let bodyString = body.asString() else { return }
+        guard retrySendCount < 100 else {
+            disconnect("Max retry send count reached")
+            return
+        }
+
+        print("===== SENDING MESSAGE =====")
+        webSocketTask?.send(.string(bodyString)) { [weak self] error in
+            if let error {
+                print("===== SEND MESSAGE ERROR: \(error.localizedDescription) =====")
+                self?.sendMessage(with: body)
+                self?.retrySendCount += 1
+                return
+            }
+            self?.retrySendCount = 0
+
+            print("===== MESSAGE SENT =====")
             self?.receiveMessage()
         }
     }
 
-    private func receiveMessage() {
-        guard counter < 10 else {
-            unsubscribe()
-            return
-        }
+    private func unsubscribe(items: [String]) {
+        sendMessage(
+            with: WebSocketBody(
+                method: .unsubscribe,
+                params: ["adausdt@ticker", "ethusdt@ticker", "btcusdt@ticker"]
+            )
+        )
+        webSocketConnectionState.send(.closing)
+    }
 
+    private func receiveMessage() {
         webSocketTask?
             .receive { [weak self] result in
                 guard let self else { return }
                 switch result {
                 case .success(let message):
-//                    prices.send(handleMessage(message))
-                        handleMessage(message)
+                    print("===== RECEIVED MESSAGE =====")
+                    handleMessage(message)
                     receiveMessage()
-                    counter += 1
                 case .failure(let failure):
-                    print("Websocket failed:", failure.localizedDescription)
-                    unsubscribe()
+                    print("===== ERROR RECEIVING MESSAGE =====")
+                    print("===== ERROR: \(failure.localizedDescription) =====")
+                    self.disconnect(failure.localizedDescription)
                 }
             }
     }
 
-    func unsubscribe() {
-        guard let unsubscribeMessage = WebSocketBody(
-            method: .unsubscribe,
-            params: ["adausdt@ticker", "ethusdt@ticker", "btcusdt@ticker"]
-        ).asString() else { return }
-
-        webSocketTask?.send(.string(unsubscribeMessage)) { error in
-            if let error {
-                print("unsubscription error:", error.localizedDescription)
-                return
-            }
-        }
-
-        disconnect()
-    }
-
-    func disconnect() {
+    func disconnect(_ message: String, withRetry: Bool = true) {
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
+        webSocketConnectionState.send(.closed(message))
+        cancelPing()
+        print("===== WEBSOCKET DISCONNECTED =====")
+        if withRetry, retryConnectCount < 10 {
+            print("===== RETRYING WEBSOCKET CONNECTION =====")
+            setupWebSocket(for: endpoint, portType: retryConnectCount < 5 ? .primary : .secondary)
+        } else {
+            print("===== MAX RETRY REACHED ======")
+            print("===== AWAITING RECONNECTION ======")
+        }
     }
 
     func handleMessage(_ message: URLSessionWebSocketTask.Message) {
-
         do {
             switch message {
             case .string(let string):
-                print("string:", string)
-//                print("Json as data:", Data(string.utf8))
-                    print("Json as object:", try JSONDecoder().decode(StreamWrapper.self, from: Data(string.utf8)))
+                managedItem.send(.some(try JSONDecoder().decode(T.self, from: Data(string.utf8))))
             case .data(let data):
-                    let decoder = try JSONDecoder().decode(StreamWrapper.self, from: data)
-                print("Data:", decoder)
+                managedItem.send(.some(try JSONDecoder().decode(T.self, from: data)))
             default:
-                break
+                managedItem.send(completion: .failure(WebSocketError.badResponse))
             }
-
-//            return try JSONDecoder().decode(T.self, from: handledData)
         } catch {
-            print("Decoding error:", (error as? DecodingError)?.localizedDescription)
-//            return nil
+            if let decodingError = (error as? DecodingError)?.localizedDescription {
+                managedItem.send(completion: .failure(WebSocketError.decodeError(decodingError)))
+            } else {
+                managedItem.send(completion: .failure(WebSocketError.unknown(error.localizedDescription)))
+            }
+        }
+    }
+
+    // MARK: - URLSessionWebSocketDelegate functions
+    // Cannot be in an extension
+    func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didOpenWithProtocol protocol: String?
+    ) {
+        guard webSocketConnectionState.value == .trying else { return }
+        if webSocketTask == self.webSocketTask {
+            webSocketConnectionState.send(.connected)
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
+        reason: Data?
+    ) {
+        let reasonDescription = if let reason {
+            String(data: reason, encoding: .utf8) ?? "No reason provided"
+        } else {
+            "No reason provided"
+        }
+
+        DispatchQueue.main.async {
+            self.disconnect("\(reasonDescription), code: \(closeCode)")
+            self.cancelPing()
         }
     }
 }
 
-import Factory
+enum WebSocketConnectionState: Hashable {
+    case trying
+    case connected
+    case closing
+    case closed(String?)
+}
 
-extension Container {
-    var webSocketManager: Factory<WebSocketManager<StreamWrapper>> {
-        self { WebSocketManager() }
+extension String {
+    static var domain: String {
+        "stream.binance.com"
     }
-}
-
-struct StreamWrapper: Codable, Identifiable {
-    var id: String { UUID().uuidString }
-
-    let result: String?
-    let data: PriceModel?
-    let stream: String?
-}
-
-struct PriceModel: Codable, Identifiable {
-    let eventType: String         // "e"
-    let eventTime: Date           // "E"
-    let symbol: String            // "s"
-    let priceChange: String       // "p"
-    let priceChangePercent: String // "P"
-    let weightedAvgPrice: String  // "w"
-    let firstTradePrice: String   // "x"
-    let lastPrice: String         // "c"
-    let lastQuantity: String      // "Q"
-    let bestBidPrice: String      // "b"
-    let bestBidQuantity: String   // "B"
-    let bestAskPrice: String      // "a"
-    let bestAskQuantity: String   // "A"
-    let openPrice: String         // "o"
-    let highPrice: String         // "h"
-    let lowPrice: String          // "l"
-    let baseVolume: String        // "v"
-    let quoteVolume: String       // "q"
-    let openTime: Date            // "O"
-    let closeTime: Date           // "C"
-    let firstTradeId: Int         // "F"
-    let lastTradeId: Int          // "L"
-    let tradeCount: Int           // "n"
-
-    var id: String { symbol } // helpful for SwiftUI
-
-    enum CodingKeys: String, CodingKey {
-        case eventType = "e"
-        case eventTime = "E"
-        case symbol = "s"
-        case priceChange = "p"
-        case priceChangePercent = "P"
-        case weightedAvgPrice = "w"
-        case firstTradePrice = "x"
-        case lastPrice = "c"
-        case lastQuantity = "Q"
-        case bestBidPrice = "b"
-        case bestBidQuantity = "B"
-        case bestAskPrice = "a"
-        case bestAskQuantity = "A"
-        case openPrice = "o"
-        case highPrice = "h"
-        case lowPrice = "l"
-        case baseVolume = "v"
-        case quoteVolume = "q"
-        case openTime = "O"
-        case closeTime = "C"
-        case firstTradeId = "F"
-        case lastTradeId = "L"
-        case tradeCount = "n"
-    }
-}
-
-struct WebSocketRequest {
-    let domain = "stream.binance.com"
-    let scheme: String
-    let requestType: String
-    let body: Data?
-    let port: Int
-
-    init(scheme: Scheme = .wss, requestType: RequestType = .get, body: WebSocketBody? = nil, port: Port = .primary) {
-        self.scheme = scheme.rawValue
-        self.requestType = requestType.rawValue.uppercased()
-        self.body = body?.asData()
-        self.port = port.rawValue
-    }
-
-    func getRequest(for endpoint: Endpoint) -> URLRequest? {
-        var components = URLComponents()
-        components.scheme = scheme
-        components.host = domain
-        components.port = port
-        guard let url = components.url else { return nil }
-
-        var request = URLRequest(url: url.appending(path: endpoint.rawValue))
-        request.httpMethod = requestType
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let body {
-            request.httpBody = body
-        }
-        return request
-    }
-}
-
-struct WebSocketBody: Codable, Identifiable {
-    let method: String
-    let params: [String]
-    let id: String
-
-    init(method: WebSocketRequestMethod, params: [String]) {
-        self.method = method.rawValue.uppercased()
-        self.params = params
-        id = UUID().uuidString
-    }
-
-    func asString() -> String? {
-        guard let data = try? JSONEncoder().encode(self),
-              let string = String(data: data, encoding: .utf8)
-        else { return "" }
-        return string
-    }
-
-    func asData() -> Data? {
-        try? JSONEncoder().encode(self)
-    }
-}
-
-enum WebSocketRequestMethod: String {
-    case subscribe
-    case unsubscribe
-}
-
-protocol EndpointProtocol {
-    var domain: URL? { get }
-    func getURL(for type: Endpoint) -> URLRequest?
-}
-
-enum Scheme: String {
-    case http
-    case https
-    case wss
-
-    var scheme: String {
-        "\(self.rawValue)://"
-    }
-}
-
-enum Port: Int {
-    case primary = 9443
-    case secondary = 443
-}
-
-enum RequestType: String {
-    case get = "GET"
-    case post = "POST"
-    case put = "PUT"
-    case delete = "DELETE"
-}
-
-enum Endpoint: String {
-    case ws
-    case stream
 }

@@ -11,7 +11,6 @@ import Factory
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    @LazyInjected(\.connectionHelper) private var connectionHelper
     @Injected(\.webSocketManager) private var webSocketManager
 
     func application(
@@ -19,7 +18,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         // Override point for customization after application launch.
-        connectionHelper.startMonitoring()
         return true
     }
 
@@ -39,7 +37,4 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         print("last message:", webSocketManager.lastMessage)
     }
 
-    func applicationWillTerminate(_ application: UIApplication) {
-        connectionHelper.stopMonitoring()
-    }
 }
