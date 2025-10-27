@@ -16,4 +16,8 @@ extension String {
     static var networkMonitorQueue: String {
         "networkMonitorQueue"
     }
+
+    static var domain: String {
+        "stream.binance.com"
+    }
 }

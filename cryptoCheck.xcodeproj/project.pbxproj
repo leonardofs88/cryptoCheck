@@ -39,7 +39,14 @@
 		985DDA622EAD0F3C0043F608 /* Exceptions for "cryptoCheck" folder in "cryptoCheckTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Extensions/String+Extensions.swift",
+				Network/Websocket/Scheme.swift,
+				Network/Websocket/WebSocketBody.swift,
+				Network/Websocket/WebSocketManager.swift,
+				Network/Websocket/WebSocketRequest.swift,
+				Network/Websocket/WebSocketRequestMethod.swift,
 				Shared/Protocols/ReachabilityMonitorHelperProtocol.swift,
+				Shared/Protocols/WebSocketManagerProtocol.swift,
 			);
 			target = 98E4215D2EACEFEE00895A41 /* cryptoCheckTests */;
 		};

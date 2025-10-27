@@ -9,7 +9,7 @@ import Foundation
 import Factory
 
 extension Container {
-    var connectionHelper: Factory<ReachabilityMonitorHelper> {
+    var reachabilityHelper: Factory<ReachabilityMonitorHelperProtocol> {
         self { ReachabilityMonitorHelper() }
     }
 

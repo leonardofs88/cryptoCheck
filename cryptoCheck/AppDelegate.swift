@@ -11,6 +11,7 @@ import Factory
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
+    @LazyInjected(\.reachabilityHelper) private var reachabilityHelper
     @Injected(\.webSocketManager) private var webSocketManager
 
     func application(
@@ -18,6 +19,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         // Override point for customization after application launch.
+        reachabilityHelper.startMonitoring()
+        webSocketManager.setupWebSocket(for: .stream)
+        webSocketManager.sendMessage(with: WebSocketBody(method: .subscribe, params: ["btcusdt@depth"]))
         return true
     }
 
@@ -34,7 +38,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
-        print("last message:", webSocketManager.lastMessage)
+//        print("last message:", webSocketManager.lastMessage)
     }
 
 }

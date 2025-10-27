@@ -11,7 +11,6 @@ import Combine
 import Alamofire
 
 class ReachabilityMonitorHelper: ReachabilityMonitorHelperProtocol {
-    typealias NetworkStatus = NetworkReachabilityManager.NetworkReachabilityStatus
 
     private(set) lazy var networkMonitor: NetworkReachabilityManager? = NetworkReachabilityManager(host: .pingHost)
     private(set) lazy var networkStatus: PassthroughSubject<NetworkStatus, Never> = PassthroughSubject()
