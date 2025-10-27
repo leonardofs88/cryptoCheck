@@ -20,7 +20,31 @@ class MainViewController: UIViewController {
         eventType: "trade",
         eventTime: Date(),
         symbol: "Symbol",
-        priceChange: "002220.246",
+        priceChange: "0002.22",
+        priceChangePercent: "002220.246",
+        weightedAvgPrice: "29941.22",
+        firstTradePrice: "900023.2",
+        lastPrice: "09934.22",
+        lastQuantity: "000232.12",
+        bestBidPrice: "0002392.223",
+        bestBidQuantity: "00302.3322",
+        bestAskPrice: "200032.2333",
+        bestAskQuantity: "2399921.22",
+        openPrice: "299312.23",
+        highPrice: "2939212.22",
+        lowPrice: "00645893.332",
+        baseVolume: "299932.122",
+        quoteVolume: "22231.2332",
+        openTime: Date(),
+        closeTime: Date(),
+        firstTradeId: 20021,
+        lastTradeId: 23991,
+        tradeCount: 221
+    ), PriceModel(
+        eventType: "trade",
+        eventTime: Date(),
+        symbol: "Symbol",
+        priceChange: "0002.22",
         priceChangePercent: "002220.246",
         weightedAvgPrice: "29941.22",
         firstTradePrice: "900023.2",
@@ -45,7 +69,7 @@ class MainViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = .systemMint
+        view.backgroundColor = .mainBackground
         setupNavigationBar()
         setupTableView()
     }
@@ -63,7 +87,9 @@ class MainViewController: UIViewController {
             make.edges.equalTo(view.safeAreaLayoutGuide)
         }
 
-        tableView.register(ListItem.self, forCellReuseIdentifier: "ListItem")
+        tableView.register(ListItemViewCell.self, forCellReuseIdentifier: "ListItem")
+        tableView.backgroundColor = .clear
+        tableView.separatorStyle = .none
         tableView.dataSource = self
     }
 }
@@ -74,8 +100,8 @@ extension MainViewController: UITableViewDataSource {
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: "ListItem", for: indexPath) as? ListItem else {
-            return ListItem()
+        guard let cell = tableView.dequeueReusableCell(withIdentifier: "ListItem", for: indexPath) as? ListItemViewCell else {
+            return ListItemViewCell()
         }
 
         cell.configureContent(with: source[indexPath.row])

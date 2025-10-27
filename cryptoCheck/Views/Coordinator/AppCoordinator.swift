@@ -19,8 +19,8 @@ class AppCoordinator: CoordinatorProtocol {
     }
 
     func start() {
-        let vc = MainViewController()
-        navigationController.pushViewController(vc, animated: true)
+        let initialViewController = MainViewController()
+        navigationController.pushViewController(initialViewController, animated: true)
     }
 }
 
