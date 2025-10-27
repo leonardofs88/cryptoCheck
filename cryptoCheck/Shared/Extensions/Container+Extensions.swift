@@ -9,7 +9,11 @@ import Foundation
 import Factory
 
 extension Container {
-    var connectionHelper: Factory<ConnectionMonitorHelper> {
-        self { ConnectionMonitorHelper() }
+    var connectionHelper: Factory<ReachabilityMonitorHelper> {
+        self { ReachabilityMonitorHelper() }
+    }
+
+    var webSocketManager: Factory<WebSocketManager<StreamWrapper>> {
+        self { WebSocketManager() }
     }
 }

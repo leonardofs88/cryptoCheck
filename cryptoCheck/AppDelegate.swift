@@ -11,14 +11,13 @@ import Factory
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    @LazyInjected(\.connectionHelper) private var connectionHelper
+    @Injected(\.webSocketManager) private var webSocketManager
 
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         // Override point for customization after application launch.
-        connectionHelper.startMonitoring()
         return true
     }
 
@@ -34,7 +33,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
     }
 
-    func applicationWillTerminate(_ application: UIApplication) {
-        connectionHelper.stopMonitoring()
+    func applicationWillResignActive(_ application: UIApplication) {
+        print("last message:", webSocketManager.lastMessage)
     }
+
 }

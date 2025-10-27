@@ -1,5 +1,5 @@
 //
-//  ConnectionMonitorHelperProtocol.swift
+//  ReachabilityMonitorHelperProtocol.swift
 //  cryptoCheck
 //
 //  Created by Leonardo Soares on 25/10/2025.
@@ -8,7 +8,7 @@
 import Alamofire
 import Combine
 
-protocol ConnectionMonitorHelperProtocol {
+protocol ReachabilityMonitorHelperProtocol {
     var networkMonitor: NetworkReachabilityManager? { get }
     var networkStatus: PassthroughSubject<NetworkReachabilityManager.NetworkReachabilityStatus, Never> { get }
 
