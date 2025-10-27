@@ -25,6 +25,6 @@ protocol WebSocketManagerProtocol<T>: URLSessionWebSocketDelegate {
     var retrySendCount: Int { get }
     var retryConnectCount: Int { get }
 
-    func setupWebSocket(for endpoint: Endpoint, portType: Port)
+    func setupWebSocket(portType: Port)
     func sendMessage(with body: WebSocketBody)
 }

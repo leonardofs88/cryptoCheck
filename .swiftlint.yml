@@ -88,6 +88,6 @@ identifier_name:
     - wss
     - put
     - get
-    
+    - key
 reporter: "xcode" # reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging, summary)
 trailing_whitespace: false

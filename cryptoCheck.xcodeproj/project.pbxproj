@@ -45,6 +45,7 @@
 				Network/Websocket/WebSocketManager.swift,
 				Network/Websocket/WebSocketRequest.swift,
 				Network/Websocket/WebSocketRequestMethod.swift,
+				Shared/Protocols/MainViewModelProtocol.swift,
 				Shared/Protocols/ReachabilityMonitorHelperProtocol.swift,
 				Shared/Protocols/WebSocketManagerProtocol.swift,
 			);

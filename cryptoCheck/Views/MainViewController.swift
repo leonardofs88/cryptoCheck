@@ -9,15 +9,45 @@ import Foundation
 import UIKit
 import SnapKit
 import Factory
+import Combine
 
 class MainViewController: UIViewController {
 
     @WeakLazyInjected(\.coordinator) private var coordinator
     @LazyInjected(\.mainViewModel) private var viewModel
 
-    private let tableView = UITableView()
+    private lazy var tableView = UITableView()
 
-    private var items = ["btcusdt".uppercased(), "ethusdt".uppercased(), "adausdt".uppercased()]
+    private let textField: UITextField = {
+        let field = UITextField()
+        field.placeholder = "E.g.: BTCUSDT"
+        field.borderStyle = .roundedRect
+        field.translatesAutoresizingMaskIntoConstraints = false
+        return field
+    }()
+
+    private let addButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("Add", for: .normal)
+        button.titleLabel?.font = .boldSystemFont(ofSize: 16)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
+
+    private var items: [String] = [] {
+        didSet {
+            if items.count < 5 {
+                viewModel.sentMessage(for: items)
+                addButton.titleLabel?.text = "Add"
+                addButton.isEnabled = true
+            } else {
+                addButton.titleLabel?.text = "Reached max items"
+                addButton.isEnabled = false
+            }
+        }
+    }
+
+    private var selectedItems: [String] = []
     private var fetchedSource: [String: PriceModel] = [:]
 
     private lazy var cancellables = Set<AnyCancellable>()
@@ -26,7 +56,7 @@ class MainViewController: UIViewController {
         super.viewDidLoad()
 
         view.backgroundColor = .mainBackground
-        setupNavigationBar()
+        navigationItem.rightBarButtonItem = editButtonItem
         setupTableView()
         listenToItems()
     }
@@ -35,31 +65,73 @@ class MainViewController: UIViewController {
         viewModel.sourcePublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] items in
+                guard let self, !isEditing else { return }
                 DispatchQueue.main.async {
-                    self?.fetchedSource.merge(items) { _, new in new }
-                    self?.tableView.reloadData()
+                    items.forEach { (key, value) in self.fetchedSource[key] = value }
+                    self.tableView.reloadData()
                 }
             }
             .store(in: &cancellables)
     }
 
-    func setupNavigationBar() {
-        self.title = "Currencies List"
-        self.navigationController?.navigationBar.prefersLargeTitles = true
-    }
+    private func setupTableView() {
+        view.addSubview(textField)
+        view.addSubview(addButton)
 
-    func setupTableView() {
         view.addSubview(tableView)
         tableView.translatesAutoresizingMaskIntoConstraints = false
 
-        tableView.snp.makeConstraints { make in
-            make.edges.equalTo(view.safeAreaLayoutGuide)
-        }
-
-        tableView.register(ListItemViewCell.self, forCellReuseIdentifier: "ListItem")
+        tableView.register(ListItemViewCell.self, forCellReuseIdentifier: "ListItemViewCell")
         tableView.backgroundColor = .clear
         tableView.separatorStyle = .none
         tableView.dataSource = self
+        setupConstraints()
+    }
+
+    private func setupConstraints() {
+        textField.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).inset(15)
+            make.leading.equalTo(view.safeAreaLayoutGuide.snp.leading).inset(15)
+            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing).inset(15)
+        }
+
+        addButton.snp.makeConstraints { make in
+            make.top.equalTo(textField.snp.bottom)
+            make.leading.equalTo(textField.snp.leading)
+            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing)
+        }
+
+        tableView.snp.makeConstraints { make in
+            make.top.equalTo(addButton.snp.bottom)
+            make.leading.equalTo(view.safeAreaLayoutGuide.snp.leading)
+            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing)
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+        }
+        setupActions()
+    }
+
+    private func setupActions() {
+        addButton.addTarget(self, action: #selector(addButtonTapped), for: .touchUpInside)
+    }
+
+    @objc private func addButtonTapped() {
+        guard let text = textField.text, !text.isEmpty, !items.contains(where: { $0 == text }) else { return }
+        items.append(text)
+        textField.text = ""
+        textField.resignFirstResponder()
+    }
+
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+
+        if editingStyle == .delete {
+            items.remove(at: indexPath.row)
+            tableView.deleteRows(at: [indexPath], with: .fade)
+        }
+    }
+
+    override func setEditing(_ editing: Bool, animated: Bool) {
+        super.setEditing(editing, animated: true)
+        tableView.setEditing(editing, animated: true)
     }
 }
 
@@ -69,62 +141,14 @@ extension MainViewController: UITableViewDataSource {
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: "ListItem", for: indexPath) as? ListItemViewCell else {
+        guard let cell = tableView.dequeueReusableCell(
+            withIdentifier: "ListItemViewCell",
+            for: indexPath
+        ) as? ListItemViewCell else {
             return ListItemViewCell()
         }
 
-//        cell.configureContent(with: source[indexPath.row])
         cell.configure(with: fetchedSource[items[indexPath.row]])
         return cell
-    }
-}
-
-import Combine
-
-protocol MainViewModelProtocol {
-    associatedtype T = Codable
-    var cancellables: Set<AnyCancellable> { get }
-    var webSocketManager: any WebSocketManagerProtocol<T> { get }
-    var sourcePublisher: PassthroughSubject<[String:PriceModel], Never> { get }
-
-    func observeWebSocket()
-}
-
-class MainViewModel: MainViewModelProtocol {
-    @Injected(\.webSocketManager) var webSocketManager
-
-    private(set) var cancellables: Set<AnyCancellable> = []
-    private(set) var sourcePublisher: PassthroughSubject<[String:PriceModel], Never> = .init()
-
-    init() {
-        observeWebSocket()
-    }
-
-    func observeWebSocket() {
-        webSocketManager.setupWebSocket(for: .stream, portType: .primary)
-        webSocketManager.sendMessage(with: WebSocketBody(method: .subscribe, params: ["btcusdt@ticker",
-                                                                                      "ethusdt@ticker",
-                                                                                      "adausdt@ticker"]))
-        webSocketManager.managedItem
-            .receive(on: RunLoop.main)
-            .compactMap(\.?.data)
-            .sink { completion in
-                switch completion {
-                case .finished:
-                    break
-                case .failure(let error):
-                    print("Error: \(error.localizedDescription)")
-                }
-            } receiveValue: { [weak self] item in
-                print("::: ===>> RECEIVED ITEM:",item)
-                self?.sourcePublisher.send([item.symbol:item])
-            }
-            .store(in: &cancellables)
-    }
-}
-
-extension Container {
-    var mainViewModel: Factory<any MainViewModelProtocol> {
-        self { MainViewModel() }
     }
 }

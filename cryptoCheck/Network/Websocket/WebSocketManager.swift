@@ -39,7 +39,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         timer = nil
     }
 
-    func setupWebSocket(for endpoint: Endpoint, portType: Port = .primary) {
+    func setupWebSocket(portType: Port = .primary) {
         guard let request = WebSocketRequest(port: portType).getRequest(for: endpoint) else { return }
         webSocketTask = session.webSocketTask(with: request)
         webSocketTask?.resume()
@@ -133,7 +133,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                             print(":::", #function, "===>> CONNECTION MONITOR REACHABLE ||")
                     self.retrySendCount = 0
                     self.retryConnectCount = 0
-                    self.setupWebSocket(for: self.endpoint)
+                    self.setupWebSocket()
                 }
             }
             .store(in: &cancellables)
@@ -199,7 +199,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         print(":::", #function, "===>> WEBSOCKET DISCONNECTED ||")
         if withRetry, retryConnectCount < 10 {
             print(":::", #function, "===>> RETRYING WEBSOCKET CONNECTION ||")
-            setupWebSocket(for: endpoint, portType: retryConnectCount < 5 ? .primary : .secondary)
+            setupWebSocket(portType: retryConnectCount < 5 ? .primary : .secondary)
         } else {
             print(":::", #function, "===>> MAX RETRY REACHED =||")
                   print(":::", #function, "===>> AWAITING RECONNECTION =||")

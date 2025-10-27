@@ -19,6 +19,7 @@ class ListItemViewCell: UITableViewCell {
     private let mainStackView = UIStackView()
     private let titleView = UIView()
 
+    private var lastPrice: Double = 0.0
     private var title: String?
 
     private let currencyValueLabel: UILabel = {
@@ -94,13 +95,13 @@ class ListItemViewCell: UITableViewCell {
         mainStackView.layer.cornerRadius = 12
         mainStackView.layer.masksToBounds = true
 
-        container.addSubview(mainStackView)
         mainStackView.addArrangedSubview(titleView)
+        container.addSubview(mainStackView)
 
         setupLine(for: ammountLabel, and: ammountValueLabel)
         setupLine(for: percentageLabel, and: percentageValueLabel)
 
-        self.addSubview(container)
+        contentView.addSubview(container)
         setupConstraints()
     }
 
@@ -151,10 +152,10 @@ class ListItemViewCell: UITableViewCell {
         ammountValueLabel.text = price.priceChange
         percentageValueLabel.text = Double(price.priceChangePercent)?.formatted(.percent) ?? 0.00.formatted(.percent)
 
-        if let currentPrice = Double(price.priceChange),
-           let lastPrice = Double(price.lastPrice) {
-            indicatorIcon.image = UIImage(systemName: lastPrice > currentPrice ? "chevron.down.2" : "chevron.up.2")
+        if let currentPrice = Double(price.priceChange) {
+            indicatorIcon.image = UIImage(systemName: currentPrice > lastPrice ? "chevron.down.2" : "chevron.up.2")
             indicatorIcon.tintColor = lastPrice > currentPrice ? .red : .green
+            lastPrice = currentPrice
         }
     }
 }
