@@ -49,22 +49,6 @@ class WebSocketManager<T: Codable>: NSObject, URLSessionWebSocketDelegate {
 
         observeConnectionMonitor()
         observeWebSocketConnection()
-
-//        managedItem
-//            .receive(on: RunLoop.main)
-//            .sink(receiveCompletion: { [weak self] completion in
-//                switch completion {
-//                case .finished:
-//                    break
-//                case .failure(let failure):
-//                    self?.disconnect(failure.localizedDescription)
-//                }
-//            }, receiveValue: { item in
-//                if let item {
-//                    print("===== RECEIVED ITEM: \(item) =====")
-//                }
-//            })
-//            .store(in: &cancellables)
     }
 
     private func observeWebSocketConnection() {

@@ -6,13 +6,22 @@
 //
 
 import UIKit
+import Factory
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
+    @Injected(\.coordinator) private var coordinator
     var window: UIWindow?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
-       // 
+        guard let winScene = (scene as? UIWindowScene) else { return }
+        window = UIWindow(windowScene: winScene)
+
+        coordinator.start()
+
+            // Define a navigationController como a ViewController inicial
+        window?.rootViewController = coordinator.navigationController
+        window?.makeKeyAndVisible()
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {

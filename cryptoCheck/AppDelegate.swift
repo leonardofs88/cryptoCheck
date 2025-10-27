@@ -11,8 +11,6 @@ import Factory
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    @Injected(\.webSocketManager) private var webSocketManager
-
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -32,9 +30,4 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Use this method to select a configuration to create the new scene with.
         return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
     }
-
-    func applicationWillResignActive(_ application: UIApplication) {
-        print("last message:", webSocketManager.lastMessage)
-    }
-
 }
