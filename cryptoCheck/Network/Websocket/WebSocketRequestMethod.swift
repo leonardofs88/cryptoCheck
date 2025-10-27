@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum WebSocketRequestMethod: String {
+enum WebSocketRequestMethod: String, Codable {
     case subscribe
     case unsubscribe
 }
