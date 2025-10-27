@@ -30,7 +30,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         super.init()
 
         observeReachability()
-        observeWebSocketConnection()
+//        observeWebSocketConnection()
     }
 
     deinit {
@@ -83,38 +83,38 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
 
     private func sendMessage(_ message: String, completion: @escaping (Error?) -> Void) {
         print(":::", #function, "===>> SENDING MESSAGE ||")
-        webSocketTask?.send(.string(message)) { [weak self] error in
+        webSocketTask?.send(.string(message)) { error in
             if let error {
                 print(":::", #function, "===>> SEND MESSAGE ERROR: \(error.localizedDescription) ||")
                 completion(error)
                 return
             }
-            self?.webSocketActionState.send(.messageSent)
+            self.webSocketActionState.send(.messageSent)
             completion(nil)
         }
     }
 
     private func observeWebSocketConnection() {
-//        webSocketActionState
-//            .receive(on: RunLoop.main)
-//            .dropFirst()
-//            .sink { state in
-//                switch state {
-//                case .closed(let reason):
-//                    print(":::", #function, "===>> CONNECTION STATE CLOSE REASON: \(reason ?? "No reason") ||")
-//                case .connected:
-//                    print(":::", #function, "===>> CONNECTION IS ESTABLISHED ||")
-//                case .tryingConnection:
-//                    print(":::", #function, "===>> TRYING CONNECTION ||")
-//                case .sendingMessage:
-//                    print(":::", #function, "===>> SENDING MESSAGE ||")
-//                case .messageSent:
-//                    print(":::", #function, "===>> MESSAGE SENT ||")
-//                case .errorSendingMessage(let error):
-//                    print(":::", #function, "===>> ERROR SENDING MESSAGE \(error.localizedDescription) ||")
-//                }
-//            }
-//            .store(in: &cancellables)
+        webSocketActionState
+            .receive(on: RunLoop.main)
+            .dropFirst()
+            .sink { state in
+                switch state {
+                case .closed(let reason):
+                    print(":::", #function, "===>> CONNECTION STATE CLOSE REASON: \(reason ?? "No reason") ||")
+                case .connected:
+                    print(":::", #function, "===>> CONNECTION IS ESTABLISHED ||")
+                case .tryingConnection:
+                    print(":::", #function, "===>> TRYING CONNECTION ||")
+                case .sendingMessage:
+                    print(":::", #function, "===>> SENDING MESSAGE ||")
+                case .messageSent:
+                    print(":::", #function, "===>> MESSAGE SENT ||")
+                case .errorSendingMessage(let error):
+                    print(":::", #function, "===>> ERROR SENDING MESSAGE \(error.localizedDescription) ||")
+                }
+            }
+            .store(in: &cancellables)
     }
 
     private func observeReachability() {
@@ -160,7 +160,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                 self?.retryConnectCount += 1
                 return
             }
-
+            
             print(":::", #function, "===>> PING SENT ||")
         }
     }
