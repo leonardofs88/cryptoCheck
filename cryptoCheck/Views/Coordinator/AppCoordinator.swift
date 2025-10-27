@@ -10,7 +10,7 @@ import UIKit
 import Factory
 
 class AppCoordinator: CoordinatorProtocol {
-    var leaves: [any CoordinatorProtocol] = []
+    var leaves: [UIViewController] = []
 
     var navigationController: UINavigationController
 
@@ -21,6 +21,16 @@ class AppCoordinator: CoordinatorProtocol {
     func start() {
         let initialViewController = MainViewController()
         navigationController.pushViewController(initialViewController, animated: true)
+    }
+
+    func push(_ view: UIViewController) {
+        leaves.append(view)
+        navigationController.pushViewController(view, animated: true)
+    }
+
+    func pop() {
+        let last = leaves.popLast()
+        last?.navigationController?.popViewController(animated: true)
     }
 }
 

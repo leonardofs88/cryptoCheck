@@ -13,7 +13,7 @@ extension Container {
         self { ReachabilityMonitorHelper() }
     }
 
-    var webSocketManager: Factory<WebSocketManager<StreamWrapper>> {
+    var webSocketManager: Factory<any WebSocketManagerProtocol<StreamWrapper>> {
         self { WebSocketManager() }
     }
 }

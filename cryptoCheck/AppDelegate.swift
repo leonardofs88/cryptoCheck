@@ -16,9 +16,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         // Override point for customization after application launch.
-        reachabilityHelper.startMonitoring()
-        webSocketManager.setupWebSocket(for: .stream)
-        webSocketManager.sendMessage(with: WebSocketBody(method: .subscribe, params: ["btcusdt@depth"]))
         return true
     }
 

@@ -1,20 +1,25 @@
-//
-//  ListItemViewCell.swift
-//  cryptoCheck
-//
-//  Created by Leonardo Soares on 27/10/2025.
-//
+    //
+    //  ListItemViewCell.swift
+    //  cryptoCheck
+    //
+    //  Created by Leonardo Soares on 27/10/2025.
+    //
 
 import UIKit
 import SnapKit
+import Factory
 
 class ListItemViewCell: UITableViewCell {
-    private var didSetupConstraints = false
-    private let inset = 15
 
+    @Injected(\.webSocketManager) var webSocketManager
+
+    private var didSetupConstraints = false
+    private let inset: CGFloat = 15
     private let container = UIView()
     private let mainStackView = UIStackView()
     private let titleView = UIView()
+
+    private var title: String?
 
     private let currencyValueLabel: UILabel = {
         let label = UILabel()
@@ -81,8 +86,8 @@ class ListItemViewCell: UITableViewCell {
 
         mainStackView.axis = .vertical
         mainStackView.distribution = .fillEqually
-        mainStackView.spacing = 10
-        mainStackView.layoutMargins = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+        mainStackView.spacing = inset
+        mainStackView.layoutMargins = UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
         mainStackView.isLayoutMarginsRelativeArrangement = true
         mainStackView.translatesAutoresizingMaskIntoConstraints = false
         mainStackView.backgroundColor = .white
@@ -116,37 +121,35 @@ class ListItemViewCell: UITableViewCell {
     }
 
     private func setupConstraints() {
-        if !didSetupConstraints {
+        container.snp.makeConstraints { make in
+            make.top.equalToSuperview().inset(20)
+            make.trailing.equalToSuperview().inset(20)
+            make.bottom.equalToSuperview().inset(20)
+            make.leading.equalToSuperview().inset(20)
+        }
 
-            container.snp.makeConstraints { make in
-                make.top.equalToSuperview().inset(5)
-                make.trailing.equalToSuperview().inset(5)
-                make.bottom.equalToSuperview().inset(5)
-                make.leading.equalToSuperview().inset(5)
-            }
+        mainStackView.snp.makeConstraints { make in
+            make.size.equalToSuperview()
+        }
 
-            mainStackView.snp.makeConstraints { make in
-                make.size.equalToSuperview()
-            }
+        currencyValueLabel.snp.makeConstraints { make in
+            make.top.equalToSuperview()
+            make.leading.equalToSuperview()
+            make.bottom.equalToSuperview()
+        }
 
-            currencyValueLabel.snp.makeConstraints { make in
-                make.top.equalToSuperview().inset(10)
-                make.leading.equalToSuperview().inset(5)
-                make.bottom.equalToSuperview().inset(10)
-            }
-
-            indicatorIcon.snp.makeConstraints { make in
-                make.top.equalToSuperview().inset(10)
-                make.trailing.equalToSuperview().inset(10)
-                make.bottom.equalToSuperview().inset(10)
-            }
+        indicatorIcon.snp.makeConstraints { make in
+            make.top.equalToSuperview()
+            make.leading.equalTo(currencyValueLabel.snp.trailing).offset(10)
+            make.bottom.equalToSuperview()
         }
     }
 
-    func configureContent(with price: PriceModel) {
-        currencyValueLabel.text = price.eventType
+    func configure(with price: PriceModel?) {
+        guard let price else { return }
+        currencyValueLabel.text = price.symbol
         ammountValueLabel.text = price.priceChange
-        percentageValueLabel.text = price.priceChangePercent
+        percentageValueLabel.text = Double(price.priceChangePercent)?.formatted(.percent) ?? 0.00.formatted(.percent)
 
         if let currentPrice = Double(price.priceChange),
            let lastPrice = Double(price.lastPrice) {

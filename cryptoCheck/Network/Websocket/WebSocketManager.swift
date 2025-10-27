@@ -15,11 +15,13 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
 
     @LazyInjected(\.reachabilityHelper) private(set) var reachabilityHelper
 
+    private(set) lazy var connectionMonitor = ReachabilityMonitorHelper()
     private(set) lazy var cancellables: Set<AnyCancellable> = []
     private(set) lazy var session: URLSession = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
     private(set) var webSocketTask: URLSessionWebSocketTask?
-    private(set) var managedItem: PassthroughSubject<T?, WebSocketError> = .init()
+    private(set) var lastMessage: URLSessionWebSocketTask.Message?
     private(set) var subscriptionState: PassthroughSubject<WebSocketRequestMethod, Never> = .init()
+    private(set) var managedItem: PassthroughSubject<T?, WebSocketError> = .init()
     private(set) var webSocketActionState: CurrentValueSubject<WebSocketActionState, Never> = .init(.closed(nil))
     private(set) var timer: Timer?
     private(set) var retrySendCount = 0
@@ -30,7 +32,6 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         super.init()
 
         observeReachability()
-//        observeWebSocketConnection()
     }
 
     deinit {
@@ -160,7 +161,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                 self?.retryConnectCount += 1
                 return
             }
-            
+
             print(":::", #function, "===>> PING SENT ||")
         }
     }

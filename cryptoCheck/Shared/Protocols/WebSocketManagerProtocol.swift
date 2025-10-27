@@ -8,19 +8,23 @@
 import Foundation
 import Combine
 
-protocol WebSocketManagerProtocol: URLSessionWebSocketDelegate {
+protocol WebSocketManagerProtocol<T>: URLSessionWebSocketDelegate {
     // swiftlint:disable:next type_name
     associatedtype T = Codable
 
-    var endpoint: Endpoint { get}
     var reachabilityHelper: ReachabilityMonitorHelperProtocol { get }
+    var connectionMonitor: ReachabilityMonitorHelper { get }
     var cancellables: Set<AnyCancellable> { get }
     var session: URLSession { get }
     var webSocketTask: URLSessionWebSocketTask? { get }
+    var lastMessage: URLSessionWebSocketTask.Message? { get }
     var managedItem: PassthroughSubject<T?, WebSocketError> { get }
-    var subscriptionState: PassthroughSubject<WebSocketRequestMethod, Never> { get }
     var webSocketActionState: CurrentValueSubject<WebSocketActionState, Never> { get }
+    var endpoint: Endpoint { get }
     var timer: Timer? { get }
     var retrySendCount: Int { get }
     var retryConnectCount: Int { get }
+
+    func setupWebSocket(for endpoint: Endpoint, portType: Port)
+    func sendMessage(with body: WebSocketBody)
 }

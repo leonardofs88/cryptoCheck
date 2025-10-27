@@ -13,58 +13,14 @@ import Factory
 class MainViewController: UIViewController {
 
     @WeakLazyInjected(\.coordinator) private var coordinator
+    @LazyInjected(\.mainViewModel) private var viewModel
 
     private let tableView = UITableView()
 
-    private let source: [PriceModel] = [PriceModel(
-        eventType: "trade",
-        eventTime: Date(),
-        symbol: "Symbol",
-        priceChange: "0002.22",
-        priceChangePercent: "002220.246",
-        weightedAvgPrice: "29941.22",
-        firstTradePrice: "900023.2",
-        lastPrice: "09934.22",
-        lastQuantity: "000232.12",
-        bestBidPrice: "0002392.223",
-        bestBidQuantity: "00302.3322",
-        bestAskPrice: "200032.2333",
-        bestAskQuantity: "2399921.22",
-        openPrice: "299312.23",
-        highPrice: "2939212.22",
-        lowPrice: "00645893.332",
-        baseVolume: "299932.122",
-        quoteVolume: "22231.2332",
-        openTime: Date(),
-        closeTime: Date(),
-        firstTradeId: 20021,
-        lastTradeId: 23991,
-        tradeCount: 221
-    ), PriceModel(
-        eventType: "trade",
-        eventTime: Date(),
-        symbol: "Symbol",
-        priceChange: "0002.22",
-        priceChangePercent: "002220.246",
-        weightedAvgPrice: "29941.22",
-        firstTradePrice: "900023.2",
-        lastPrice: "09934.22",
-        lastQuantity: "000232.12",
-        bestBidPrice: "0002392.223",
-        bestBidQuantity: "00302.3322",
-        bestAskPrice: "200032.2333",
-        bestAskQuantity: "2399921.22",
-        openPrice: "299312.23",
-        highPrice: "2939212.22",
-        lowPrice: "00645893.332",
-        baseVolume: "299932.122",
-        quoteVolume: "22231.2332",
-        openTime: Date(),
-        closeTime: Date(),
-        firstTradeId: 20021,
-        lastTradeId: 23991,
-        tradeCount: 221
-    )]
+    private var items = ["btcusdt".uppercased(), "ethusdt".uppercased(), "adausdt".uppercased()]
+    private var fetchedSource: [String: PriceModel] = [:]
+
+    private lazy var cancellables = Set<AnyCancellable>()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -72,6 +28,19 @@ class MainViewController: UIViewController {
         view.backgroundColor = .mainBackground
         setupNavigationBar()
         setupTableView()
+        listenToItems()
+    }
+
+    private func listenToItems() {
+        viewModel.sourcePublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] items in
+                DispatchQueue.main.async {
+                    self?.fetchedSource.merge(items) { _, new in new }
+                    self?.tableView.reloadData()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     func setupNavigationBar() {
@@ -96,7 +65,7 @@ class MainViewController: UIViewController {
 
 extension MainViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        source.count
+        items.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -104,7 +73,58 @@ extension MainViewController: UITableViewDataSource {
             return ListItemViewCell()
         }
 
-        cell.configureContent(with: source[indexPath.row])
+//        cell.configureContent(with: source[indexPath.row])
+        cell.configure(with: fetchedSource[items[indexPath.row]])
         return cell
+    }
+}
+
+import Combine
+
+protocol MainViewModelProtocol {
+    associatedtype T = Codable
+    var cancellables: Set<AnyCancellable> { get }
+    var webSocketManager: any WebSocketManagerProtocol<T> { get }
+    var sourcePublisher: PassthroughSubject<[String:PriceModel], Never> { get }
+
+    func observeWebSocket()
+}
+
+class MainViewModel: MainViewModelProtocol {
+    @Injected(\.webSocketManager) var webSocketManager
+
+    private(set) var cancellables: Set<AnyCancellable> = []
+    private(set) var sourcePublisher: PassthroughSubject<[String:PriceModel], Never> = .init()
+
+    init() {
+        observeWebSocket()
+    }
+
+    func observeWebSocket() {
+        webSocketManager.setupWebSocket(for: .stream, portType: .primary)
+        webSocketManager.sendMessage(with: WebSocketBody(method: .subscribe, params: ["btcusdt@ticker",
+                                                                                      "ethusdt@ticker",
+                                                                                      "adausdt@ticker"]))
+        webSocketManager.managedItem
+            .receive(on: RunLoop.main)
+            .compactMap(\.?.data)
+            .sink { completion in
+                switch completion {
+                case .finished:
+                    break
+                case .failure(let error):
+                    print("Error: \(error.localizedDescription)")
+                }
+            } receiveValue: { [weak self] item in
+                print("::: ===>> RECEIVED ITEM:",item)
+                self?.sourcePublisher.send([item.symbol:item])
+            }
+            .store(in: &cancellables)
+    }
+}
+
+extension Container {
+    var mainViewModel: Factory<any MainViewModelProtocol> {
+        self { MainViewModel() }
     }
 }

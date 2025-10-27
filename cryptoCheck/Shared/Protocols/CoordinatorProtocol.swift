@@ -9,12 +9,11 @@ import Foundation
 import UIKit
 
 protocol CoordinatorProtocol {
-    // Array de coordinator filhas
-    var leaves: [CoordinatorProtocol] { get set }
+    var leaves: [UIViewController] { get set }
 
-    // Navigationcontroller que apresentará as viewCOntrollers
     var navigationController: UINavigationController { get set }
 
-    // método que inicia o coordinator e a apresentação.
     func start()
+
+    func pop()
 }
