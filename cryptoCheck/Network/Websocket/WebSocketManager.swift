@@ -15,11 +15,13 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
 
     @LazyInjected(\.reachabilityHelper) private(set) var reachabilityHelper
 
+    private(set) lazy var connectionMonitor = ReachabilityMonitorHelper()
     private(set) lazy var cancellables: Set<AnyCancellable> = []
     private(set) lazy var session: URLSession = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
     private(set) var webSocketTask: URLSessionWebSocketTask?
-    private(set) var managedItem: PassthroughSubject<T?, WebSocketError> = .init()
+    private(set) var lastMessage: URLSessionWebSocketTask.Message?
     private(set) var subscriptionState: PassthroughSubject<WebSocketRequestMethod, Never> = .init()
+    private(set) var managedItem: PassthroughSubject<T?, WebSocketError> = .init()
     private(set) var webSocketActionState: CurrentValueSubject<WebSocketActionState, Never> = .init(.closed(nil))
     private(set) var timer: Timer?
     private(set) var retrySendCount = 0
@@ -30,7 +32,6 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         super.init()
 
         observeReachability()
-//        observeWebSocketConnection()
     }
 
     deinit {
@@ -38,7 +39,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         timer = nil
     }
 
-    func setupWebSocket(for endpoint: Endpoint, portType: Port = .primary) {
+    func setupWebSocket(portType: Port = .primary) {
         guard let request = WebSocketRequest(port: portType).getRequest(for: endpoint) else { return }
         webSocketTask = session.webSocketTask(with: request)
         webSocketTask?.resume()
@@ -78,6 +79,21 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
             retrySendCount = 0
             print(":::", #function, "===>> MESSAGE SENT ||")
             receiveMessage()
+        }
+    }
+
+    func disconnect(_ message: String, withRetry: Bool = true) {
+        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        webSocketTask = nil
+        webSocketActionState.send(.closed(message))
+        cancelPing()
+        print(":::", #function, "===>> WEBSOCKET DISCONNECTED ||")
+        if withRetry, retryConnectCount < 10 {
+            print(":::", #function, "===>> RETRYING WEBSOCKET CONNECTION ||")
+            setupWebSocket(portType: retryConnectCount < 5 ? .primary : .secondary)
+        } else {
+            print(":::", #function, "===>> MAX RETRY REACHED =||")
+            print(":::", #function, "===>> AWAITING RECONNECTION =||")
         }
     }
 
@@ -129,10 +145,10 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                     print(":::", #function, "===>> CONNECTION MONITOR NOT REACHABLE ||")
                     disconnect("Retrying connection...")
                 case .reachable:
-                            print(":::", #function, "===>> CONNECTION MONITOR REACHABLE ||")
+                    print(":::", #function, "===>> CONNECTION MONITOR REACHABLE ||")
                     self.retrySendCount = 0
                     self.retryConnectCount = 0
-                    self.setupWebSocket(for: self.endpoint)
+                    self.setupWebSocket()
                 }
             }
             .store(in: &cancellables)
@@ -155,12 +171,12 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         webSocketTask?.sendPing { [weak self] error in
             if let error {
                 print(":::", #function, "===>> PING ERROR ||")
-                      print(":::", #function, "===>> ERROR: \(error.localizedDescription) ||")
+                print(":::", #function, "===>> ERROR: \(error.localizedDescription) ||")
                 self?.disconnect("Retrying...")
                 self?.retryConnectCount += 1
                 return
             }
-            
+
             print(":::", #function, "===>> PING SENT ||")
         }
     }
@@ -183,26 +199,11 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                     handleMessage(message)
                     receiveMessage()
                 case .failure(let failure):
-                            print(":::", #function, "===>> ERROR RECEIVING MESSAGE ||")
-                                  print(":::", #function, "===>> ERROR: \(failure.localizedDescription) ||")
+                    print(":::", #function, "===>> ERROR RECEIVING MESSAGE ||")
+                    print(":::", #function, "===>> ERROR: \(failure.localizedDescription) ||")
                     self.disconnect(failure.localizedDescription)
                 }
             }
-    }
-
-    private func disconnect(_ message: String, withRetry: Bool = true) {
-        webSocketTask?.cancel(with: .goingAway, reason: nil)
-        webSocketTask = nil
-        webSocketActionState.send(.closed(message))
-        cancelPing()
-        print(":::", #function, "===>> WEBSOCKET DISCONNECTED ||")
-        if withRetry, retryConnectCount < 10 {
-            print(":::", #function, "===>> RETRYING WEBSOCKET CONNECTION ||")
-            setupWebSocket(for: endpoint, portType: retryConnectCount < 5 ? .primary : .secondary)
-        } else {
-            print(":::", #function, "===>> MAX RETRY REACHED =||")
-                  print(":::", #function, "===>> AWAITING RECONNECTION =||")
-        }
     }
 
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {

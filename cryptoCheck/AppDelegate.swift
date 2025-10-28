@@ -11,17 +11,11 @@ import Factory
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    @LazyInjected(\.reachabilityHelper) private var reachabilityHelper
-    @Injected(\.webSocketManager) private var webSocketManager
-
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         // Override point for customization after application launch.
-        reachabilityHelper.startMonitoring()
-        webSocketManager.setupWebSocket(for: .stream)
-        webSocketManager.sendMessage(with: WebSocketBody(method: .subscribe, params: ["btcusdt@depth"]))
         return true
     }
 
@@ -36,9 +30,4 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Use this method to select a configuration to create the new scene with.
         return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
     }
-
-    func applicationWillResignActive(_ application: UIApplication) {
-//        print("last message:", webSocketManager.lastMessage)
-    }
-
 }
