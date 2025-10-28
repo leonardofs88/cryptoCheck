@@ -8,12 +8,14 @@
 import Foundation
 import UIKit
 
-protocol CoordinatorProtocol {
-    var leaves: [UIViewController] { get set }
+protocol CoordinatorProtocol: AnyObject {
+    var children: [UIViewController] { get set }
 
     var navigationController: UINavigationController { get set }
 
     func start()
 
     func pop()
+
+    func showDetailsView(with data: PriceModel)
 }

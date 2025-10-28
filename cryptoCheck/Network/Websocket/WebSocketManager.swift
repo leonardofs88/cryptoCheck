@@ -82,6 +82,21 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         }
     }
 
+    func disconnect(_ message: String, withRetry: Bool = true) {
+        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        webSocketTask = nil
+        webSocketActionState.send(.closed(message))
+        cancelPing()
+        print(":::", #function, "===>> WEBSOCKET DISCONNECTED ||")
+        if withRetry, retryConnectCount < 10 {
+            print(":::", #function, "===>> RETRYING WEBSOCKET CONNECTION ||")
+            setupWebSocket(portType: retryConnectCount < 5 ? .primary : .secondary)
+        } else {
+            print(":::", #function, "===>> MAX RETRY REACHED =||")
+            print(":::", #function, "===>> AWAITING RECONNECTION =||")
+        }
+    }
+
     private func sendMessage(_ message: String, completion: @escaping (Error?) -> Void) {
         print(":::", #function, "===>> SENDING MESSAGE ||")
         webSocketTask?.send(.string(message)) { error in
@@ -130,7 +145,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                     print(":::", #function, "===>> CONNECTION MONITOR NOT REACHABLE ||")
                     disconnect("Retrying connection...")
                 case .reachable:
-                            print(":::", #function, "===>> CONNECTION MONITOR REACHABLE ||")
+                    print(":::", #function, "===>> CONNECTION MONITOR REACHABLE ||")
                     self.retrySendCount = 0
                     self.retryConnectCount = 0
                     self.setupWebSocket()
@@ -156,7 +171,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         webSocketTask?.sendPing { [weak self] error in
             if let error {
                 print(":::", #function, "===>> PING ERROR ||")
-                      print(":::", #function, "===>> ERROR: \(error.localizedDescription) ||")
+                print(":::", #function, "===>> ERROR: \(error.localizedDescription) ||")
                 self?.disconnect("Retrying...")
                 self?.retryConnectCount += 1
                 return
@@ -184,26 +199,11 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                     handleMessage(message)
                     receiveMessage()
                 case .failure(let failure):
-                            print(":::", #function, "===>> ERROR RECEIVING MESSAGE ||")
-                                  print(":::", #function, "===>> ERROR: \(failure.localizedDescription) ||")
+                    print(":::", #function, "===>> ERROR RECEIVING MESSAGE ||")
+                    print(":::", #function, "===>> ERROR: \(failure.localizedDescription) ||")
                     self.disconnect(failure.localizedDescription)
                 }
             }
-    }
-
-    private func disconnect(_ message: String, withRetry: Bool = true) {
-        webSocketTask?.cancel(with: .goingAway, reason: nil)
-        webSocketTask = nil
-        webSocketActionState.send(.closed(message))
-        cancelPing()
-        print(":::", #function, "===>> WEBSOCKET DISCONNECTED ||")
-        if withRetry, retryConnectCount < 10 {
-            print(":::", #function, "===>> RETRYING WEBSOCKET CONNECTION ||")
-            setupWebSocket(portType: retryConnectCount < 5 ? .primary : .secondary)
-        } else {
-            print(":::", #function, "===>> MAX RETRY REACHED =||")
-                  print(":::", #function, "===>> AWAITING RECONNECTION =||")
-        }
     }
 
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {

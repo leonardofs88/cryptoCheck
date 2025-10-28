@@ -8,11 +8,13 @@
 import Combine
 
 protocol MainViewModelProtocol {
+    // swiftlint:disable:next type_name
     associatedtype T = Codable
+
     var cancellables: Set<AnyCancellable> { get }
     var webSocketManager: any WebSocketManagerProtocol<T> { get }
     var sourcePublisher: PassthroughSubject<[String:PriceModel], Never> { get }
 
     func startObsevingSocket()
-    func sentMessage(for items: [String])
+    func sendMessage(for items: [String])
 }

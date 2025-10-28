@@ -10,7 +10,7 @@ import UIKit
 import Factory
 
 class AppCoordinator: CoordinatorProtocol {
-    var leaves: [UIViewController] = []
+    var children: [UIViewController] = []
 
     var navigationController: UINavigationController
 
@@ -20,23 +20,23 @@ class AppCoordinator: CoordinatorProtocol {
 
     func start() {
         let initialViewController = MainViewController()
+        initialViewController.setCoordinator(self)
+        children.append(initialViewController)
         navigationController.pushViewController(initialViewController, animated: true)
     }
 
-    func push(_ view: UIViewController) {
-        leaves.append(view)
-        navigationController.pushViewController(view, animated: true)
+    func showDetailsView(with data: PriceModel) {
+        let detailsViewController = DetailsViewController()
+        detailsViewController.setData(price: data)
+        detailsViewController.setCoordinator(self)
+        children.append(detailsViewController)
+        navigationController.pushViewController(detailsViewController, animated: true)
     }
 
     func pop() {
-        let last = leaves.popLast()
-        last?.navigationController?.popViewController(animated: true)
-    }
-}
-
-extension Container {
-    @MainActor
-    var coordinator: Factory<CoordinatorProtocol> {
-        self { @MainActor in AppCoordinator(navigationController: UINavigationController()) }
+        let popLast = children.popLast()
+        if let popLast {
+            navigationController.popViewController(animated: true)
+        }
     }
 }

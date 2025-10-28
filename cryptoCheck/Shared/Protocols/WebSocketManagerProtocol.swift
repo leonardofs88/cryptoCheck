@@ -27,4 +27,5 @@ protocol WebSocketManagerProtocol<T>: URLSessionWebSocketDelegate {
 
     func setupWebSocket(portType: Port)
     func sendMessage(with body: WebSocketBody)
+    func disconnect(_ message: String, withRetry: Bool)
 }

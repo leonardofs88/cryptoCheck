@@ -13,7 +13,8 @@ import Combine
 
 class MainViewController: UIViewController {
 
-    @WeakLazyInjected(\.coordinator) private var coordinator
+    private weak var coordinator: CoordinatorProtocol?
+
     @LazyInjected(\.mainViewModel) private var viewModel
 
     private lazy var tableView = UITableView()
@@ -37,7 +38,7 @@ class MainViewController: UIViewController {
     private var items: [String] = [] {
         didSet {
             if items.count < 5 {
-                viewModel.sentMessage(for: items)
+                viewModel.sendMessage(for: items)
                 addButton.titleLabel?.text = "Add"
                 addButton.isEnabled = true
             } else {
@@ -58,7 +59,24 @@ class MainViewController: UIViewController {
         view.backgroundColor = .mainBackground
         navigationItem.rightBarButtonItem = editButtonItem
         setupTableView()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        viewModel.startObsevingSocket()
+        if !items.isEmpty {
+            viewModel.sendMessage(for: items)
+        }
         listenToItems()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        viewModel.webSocketManager.disconnect("Changing View", withRetry: false)
+    }
+
+    func setCoordinator(_ coordinator: CoordinatorProtocol) {
+        self.coordinator = coordinator
     }
 
     private func listenToItems() {
@@ -85,6 +103,7 @@ class MainViewController: UIViewController {
         tableView.backgroundColor = .clear
         tableView.separatorStyle = .none
         tableView.dataSource = self
+        tableView.delegate = self
         setupConstraints()
     }
 
@@ -147,8 +166,15 @@ extension MainViewController: UITableViewDataSource {
         ) as? ListItemViewCell else {
             return ListItemViewCell()
         }
-
         cell.configure(with: fetchedSource[items[indexPath.row]])
         return cell
+    }
+}
+
+extension MainViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        guard let data = fetchedSource[items[indexPath.row]]  else { return }
+
+        coordinator?.showDetailsView(with: data)
     }
 }

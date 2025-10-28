@@ -16,7 +16,7 @@ extension Container {
     var webSocketManager: Factory<any WebSocketManagerProtocol<StreamWrapper>> {
         self { WebSocketManager() }
     }
-    
+
     var mainViewModel: Factory<any MainViewModelProtocol> {
         self { MainViewModel() }
     }

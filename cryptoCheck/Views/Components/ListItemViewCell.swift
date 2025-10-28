@@ -148,14 +148,16 @@ class ListItemViewCell: UITableViewCell {
 
     func configure(with price: PriceModel?) {
         guard let price else { return }
-        currencyValueLabel.text = price.symbol
-        ammountValueLabel.text = price.priceChange
-        percentageValueLabel.text = Double(price.priceChangePercent)?.formatted(.percent) ?? 0.00.formatted(.percent)
+        DispatchQueue.main.async {
+            self.currencyValueLabel.text = price.symbol
+            self.ammountValueLabel.text = price.priceChange
+            self.percentageValueLabel.text = Double(price.priceChangePercent)?.formatted(.percent) ?? 0.00.formatted(.percent)
 
-        if let currentPrice = Double(price.priceChange) {
-            indicatorIcon.image = UIImage(systemName: currentPrice > lastPrice ? "chevron.down.2" : "chevron.up.2")
-            indicatorIcon.tintColor = lastPrice > currentPrice ? .red : .green
-            lastPrice = currentPrice
+            if let currentPrice = Double(price.priceChange) {
+                self.indicatorIcon.image = UIImage(systemName: currentPrice > self.lastPrice ? "chevron.down.2" : "chevron.up.2")
+                self.indicatorIcon.tintColor = currentPrice > self.lastPrice ? .red : .green
+                self.lastPrice = currentPrice
+            }
         }
     }
 }

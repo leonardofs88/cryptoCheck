@@ -10,22 +10,28 @@ import Combine
 import Foundation
 
 class MainViewModel: MainViewModelProtocol {
+
     @Injected(\.webSocketManager) var webSocketManager
+
+    private weak var coordinator: CoordinatorProtocol?
 
     private(set) var cancellables: Set<AnyCancellable> = []
     private(set) var sourcePublisher: PassthroughSubject<[String:PriceModel], Never> = .init()
 
     init() {
-        startObsevingSocket()
+        listenToWebSocket()
     }
 
-    func sentMessage(for items: [String]) {
+    func sendMessage(for items: [String]) {
         let symbols = items.map { $0.lowercased() + "@ticker"}
         webSocketManager.sendMessage(with: WebSocketBody(method: .subscribe, params: symbols))
     }
 
     func startObsevingSocket() {
         webSocketManager.setupWebSocket(portType: .primary)
+    }
+
+    func listenToWebSocket() {
         webSocketManager.managedItem
             .receive(on: RunLoop.main)
             .compactMap(\.?.data)

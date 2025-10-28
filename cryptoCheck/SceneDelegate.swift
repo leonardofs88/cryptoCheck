@@ -10,17 +10,19 @@ import Factory
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
-    @Injected(\.coordinator) private var coordinator
     var window: UIWindow?
+    var coordinator: CoordinatorProtocol?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let winScene = (scene as? UIWindowScene) else { return }
         window = UIWindow(windowScene: winScene)
 
-        coordinator.start()
+        let mainNavigationViewController = UINavigationController()
+        coordinator = AppCoordinator(navigationController: mainNavigationViewController)
+        coordinator?.start()
 
             // Define a navigationController como a ViewController inicial
-        window?.rootViewController = coordinator.navigationController
+        window?.rootViewController = mainNavigationViewController
         window?.makeKeyAndVisible()
     }
 
