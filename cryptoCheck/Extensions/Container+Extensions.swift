@@ -17,7 +17,7 @@ extension Container {
         self { WebSocketManager() }
     }
 
-    var mainViewModel: Factory<any MainViewModelProtocol> {
-        self { MainViewModel() }
+    var mainViewModel: Factory<any MainViewModelProtocol<PriceModel>> {
+        self { MainViewModel<PriceModel>() }
     }
 }

@@ -9,11 +9,11 @@ import Factory
 import Combine
 import Foundation
 
-class MainViewModel: MainViewModelProtocol {
+class MainViewModel<T: Codable>: MainViewModelProtocol {
 
     @Injected(\.webSocketManager) var webSocketManager
 
-    private weak var coordinator: CoordinatorProtocol?
+    private weak var coordinator: (any CoordinatorProtocol)?
 
     private(set) var cancellables: Set<AnyCancellable> = []
     private(set) var sourcePublisher: PassthroughSubject<[String:PriceModel], Never> = .init()
@@ -34,7 +34,7 @@ class MainViewModel: MainViewModelProtocol {
     func listenToWebSocket() {
         webSocketManager.managedItem
             .receive(on: RunLoop.main)
-            .compactMap(\.?.data)
+            .compactMap({ $0?.data })
             .sink { completion in
                 switch completion {
                 case .finished:

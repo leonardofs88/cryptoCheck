@@ -21,11 +21,11 @@ The purpose of this app is to check live prices of cryptocurrencies with [Binanc
 
 ## External Libraries
 
-For helping the app development, this project uses two external libraries.
+For helping the app development, this project uses four external libraries.
 
 ### Swiftlint
 
-This library is responsible to give warnings on the IDE for the developer keeps the code clean and maintanable. You can check more in [SwiftLint](https://github.com/realm/SwiftLint)
+This library is responsible to give warnings on the IDE for keeping the code clean and maintanable. You can check more in [SwiftLint](https://github.com/realm/SwiftLint)
 
 ### Factory
 

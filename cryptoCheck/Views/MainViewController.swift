@@ -11,11 +11,21 @@ import SnapKit
 import Factory
 import Combine
 
-class MainViewController: UIViewController {
+protocol MainViewControllerProtocol<T>: UITableViewDataSource, UITableViewDelegate {
+    // swiftlint:disable:next type_name
+    associatedtype T = Codable
 
-    private weak var coordinator: CoordinatorProtocol?
+    var coordinator: (any CoordinatorProtocol)? { get }
+    var viewModel: any MainViewModelProtocol<T> { get }
+    var selectedItems: [String] { get }
+    var fetchedSource: [String: T] { get }
+}
 
-    @LazyInjected(\.mainViewModel) private var viewModel
+class MainViewController<T: Codable>: UIViewController, MainViewControllerProtocol {
+
+    private(set) weak var coordinator: (any CoordinatorProtocol)?
+
+    @LazyInjected(\.mainViewModel) private(set) var viewModel
 
     private lazy var tableView = UITableView()
 
@@ -48,8 +58,8 @@ class MainViewController: UIViewController {
         }
     }
 
-    private var selectedItems: [String] = []
-    private var fetchedSource: [String: PriceModel] = [:]
+    private(set) var selectedItems: [String] = []
+    private(set) var fetchedSource: [String: PriceModel] = [:]
 
     private lazy var cancellables = Set<AnyCancellable>()
 
@@ -75,7 +85,7 @@ class MainViewController: UIViewController {
         viewModel.webSocketManager.disconnect("Changing View", withRetry: false)
     }
 
-    func setCoordinator(_ coordinator: CoordinatorProtocol) {
+    func setCoordinator(_ coordinator: any CoordinatorProtocol) {
         self.coordinator = coordinator
     }
 
@@ -140,6 +150,11 @@ class MainViewController: UIViewController {
         textField.resignFirstResponder()
     }
 
+    override func setEditing(_ editing: Bool, animated: Bool) {
+        super.setEditing(editing, animated: true)
+        tableView.setEditing(editing, animated: true)
+    }
+
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
 
         if editingStyle == .delete {
@@ -148,13 +163,6 @@ class MainViewController: UIViewController {
         }
     }
 
-    override func setEditing(_ editing: Bool, animated: Bool) {
-        super.setEditing(editing, animated: true)
-        tableView.setEditing(editing, animated: true)
-    }
-}
-
-extension MainViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         items.count
     }
@@ -169,12 +177,10 @@ extension MainViewController: UITableViewDataSource {
         cell.configure(with: fetchedSource[items[indexPath.row]])
         return cell
     }
-}
 
-extension MainViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         guard let data = fetchedSource[items[indexPath.row]]  else { return }
 
-        coordinator?.showDetailsView(with: data)
+        coordinator?.showDetailsView()
     }
 }

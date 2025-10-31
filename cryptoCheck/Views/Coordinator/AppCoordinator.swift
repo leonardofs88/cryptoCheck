@@ -19,23 +19,20 @@ class AppCoordinator: CoordinatorProtocol {
     }
 
     func start() {
-        let initialViewController = MainViewController()
+        let initialViewController = MainViewController<PriceModel>()
         initialViewController.setCoordinator(self)
         children.append(initialViewController)
         navigationController.pushViewController(initialViewController, animated: true)
     }
 
-    func showDetailsView(with data: PriceModel) {
+    func showDetailsView() {
         let detailsViewController = DetailsViewController()
-        detailsViewController.setData(price: data)
-        detailsViewController.setCoordinator(self)
         children.append(detailsViewController)
         navigationController.pushViewController(detailsViewController, animated: true)
     }
 
     func pop() {
-        let popLast = children.popLast()
-        if let popLast {
+        if children.popLast() != nil {
             navigationController.popViewController(animated: true)
         }
     }

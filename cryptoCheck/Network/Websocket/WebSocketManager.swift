@@ -210,7 +210,13 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         do {
             switch message {
             case .string(let string):
-                managedItem.send(.some(try JSONDecoder().decode(T.self, from: Data(string.utf8))))
+                print("incoming string", string)
+                if string.contains("result") {
+                    let result = try JSONDecoder().decode(WebSocketResult.self, from: Data(string.utf8))
+                    print("Message result:", result)
+                } else {
+                    managedItem.send(.some(try JSONDecoder().decode(T.self, from: Data(string.utf8))))
+                }
             case .data(let data):
                 managedItem.send(.some(try JSONDecoder().decode(T.self, from: data)))
             default:
@@ -273,4 +279,10 @@ enum WebSocketError: Error, Hashable {
     case timeOut
     case decodeError(String)
     case unknown(String?)
+}
+
+
+struct WebSocketResult: Codable {
+    let id: String
+    let result: String?
 }
