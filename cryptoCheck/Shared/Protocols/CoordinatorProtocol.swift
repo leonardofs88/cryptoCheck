@@ -17,5 +17,5 @@ protocol CoordinatorProtocol: AnyObject {
 
     func pop()
 
-    func showDetailsView()
+    func showDetailsView(for symbol: String)
 }

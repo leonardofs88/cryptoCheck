@@ -15,8 +15,8 @@ protocol MainViewModelProtocol<T> {
 
     var cancellables: Set<AnyCancellable> { get }
     var webSocketManager: any WebSocketManagerProtocol<W> { get }
-    var sourcePublisher: PassthroughSubject<[String:T], Never> { get }
+    var sourcePublisher: PassthroughSubject<T, Never> { get }
 
     func startObsevingSocket()
-    func sendMessage(for items: [String])
+    func sendMessage(_ method: WebSocketRequestMethod, for items: [String])
 }

@@ -15,7 +15,7 @@ class DetailsViewController: UIViewController {
     @Injected(\.mainViewModel) private var mainViewModel
 
     private weak var coordinator: CoordinatorProtocol?
-
+    private var symbol: String?
     private var price: PriceModel? {
         didSet {
             DispatchQueue.main.async {
@@ -23,7 +23,7 @@ class DetailsViewController: UIViewController {
             }
         }
     }
-    private lazy var cancellables: Set<AnyCancellable> = []
+    private var cancellable: AnyCancellable?
 
     // MARK: - UI Components
 
@@ -49,38 +49,48 @@ class DetailsViewController: UIViewController {
         navigationItem.title = price?.symbol.uppercased()
         view.backgroundColor = .mainBackground
         setupViews()
+        listenToChanges()
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        listenToData()
+        mainViewModel.startObsevingSocket()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        mainViewModel.webSocketManager.disconnect("Changing View", withRetry: false)
+        if let symbol = price?.symbol {
+            mainViewModel.sendMessage(.unsubscribe, for: [symbol])
+        }
     }
 
-    private func listenToData() {
-        mainViewModel.sourcePublisher
-            .receive(on: RunLoop.main)
-            .map { dict in
-                dict.values.filter { $0.symbol == self.price?.symbol }
-            }
-            .sink { item in
-                self.price = item.first
-            }
-            .store(in: &cancellables)
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if let symbol {
+            mainViewModel.sendMessage(.subscribe, for: [symbol])
+        }
     }
 
     func setCoordinator(_ coordinator: CoordinatorProtocol) {
         self.coordinator = coordinator
     }
 
-    func setData(price: PriceModel) {
-        self.price = price
-        mainViewModel.startObsevingSocket()
-        mainViewModel.sendMessage(for: [price.symbol])
+    func setData(symbol: String) {
+        self.symbol = symbol
+    }
+
+    private func listenToChanges() {
+        cancellable = mainViewModel.sourcePublisher
+            .receive(on: DispatchQueue.main)
+            .filter({
+                $0.symbol == self.symbol
+            })
+            .sink { [weak self] fetchedItem in
+                guard let self, !isEditing else { return }
+                DispatchQueue.main.async {
+                    self.price = fetchedItem
+                }
+            }
     }
 
     private func updateViews() {
@@ -142,6 +152,7 @@ class DetailsViewController: UIViewController {
         containerStackView.snp.makeConstraints { make in
             make.edges.equalTo(view.safeAreaLayoutGuide).inset(20)
         }
+        updateViews()
     }
 }
 

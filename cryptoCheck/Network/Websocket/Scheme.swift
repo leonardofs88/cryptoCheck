@@ -39,5 +39,3 @@ enum Endpoint: String {
     case ws
     case stream
 }
-
-

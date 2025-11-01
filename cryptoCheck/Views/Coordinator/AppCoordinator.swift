@@ -25,9 +25,10 @@ class AppCoordinator: CoordinatorProtocol {
         navigationController.pushViewController(initialViewController, animated: true)
     }
 
-    func showDetailsView() {
+    func showDetailsView(for symbol: String) {
         let detailsViewController = DetailsViewController()
         children.append(detailsViewController)
+        detailsViewController.setData(symbol: symbol)
         navigationController.pushViewController(detailsViewController, animated: true)
     }
 

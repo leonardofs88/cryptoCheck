@@ -17,8 +17,6 @@ protocol MainViewControllerProtocol<T>: UITableViewDataSource, UITableViewDelega
 
     var coordinator: (any CoordinatorProtocol)? { get }
     var viewModel: any MainViewModelProtocol<T> { get }
-    var selectedItems: [String] { get }
-    var fetchedSource: [String: T] { get }
 }
 
 class MainViewController<T: Codable>: UIViewController, MainViewControllerProtocol {
@@ -29,6 +27,12 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
 
     private lazy var tableView = UITableView()
 
+    private var dataSource: [String: PriceModel] = [:] {
+        didSet {
+            tableView.reloadData()
+        }
+    }
+
     private let textField: UITextField = {
         let field = UITextField()
         field.placeholder = "E.g.: BTCUSDT"
@@ -38,8 +42,9 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
     }()
 
     private let addButton: UIButton = {
-        let button = UIButton(type: .system)
+        let button = UIButton(configuration: .borderedProminent())
         button.setTitle("Add", for: .normal)
+        button.setTitle("Reached max items", for: .disabled)
         button.titleLabel?.font = .boldSystemFont(ofSize: 16)
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
@@ -47,19 +52,16 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
 
     private var items: [String] = [] {
         didSet {
-            if items.count < 5 {
-                viewModel.sendMessage(for: items)
-                addButton.titleLabel?.text = "Add"
-                addButton.isEnabled = true
-            } else {
-                addButton.titleLabel?.text = "Reached max items"
-                addButton.isEnabled = false
+            DispatchQueue.main.async {
+                if self.items.count < 5 {
+                    self.viewModel.sendMessage(.subscribe, for: self.items)
+                    self.addButton.isEnabled = true
+                } else {
+                    self.addButton.isEnabled = false
+                }
             }
         }
     }
-
-    private(set) var selectedItems: [String] = []
-    private(set) var fetchedSource: [String: PriceModel] = [:]
 
     private lazy var cancellables = Set<AnyCancellable>()
 
@@ -68,38 +70,31 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
 
         view.backgroundColor = .mainBackground
         navigationItem.rightBarButtonItem = editButtonItem
+
         setupTableView()
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        viewModel.startObsevingSocket()
         if !items.isEmpty {
-            viewModel.sendMessage(for: items)
+            viewModel.startObsevingSocket()
+            viewModel.sendMessage(.subscribe, for: items)
         }
-        listenToItems()
+        listenToChanges()
     }
 
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        viewModel.webSocketManager.disconnect("Changing View", withRetry: false)
+    private func listenToChanges() {
+        viewModel.sourcePublisher
+            .receive(on: DispatchQueue.main)
+            .compactMap({ $0 })
+            .sink { [weak self] fetchedItem in
+                guard let self, !isEditing else { return }
+                self.dataSource[fetchedItem.symbol] = fetchedItem
+            }.store(in: &cancellables)
     }
 
     func setCoordinator(_ coordinator: any CoordinatorProtocol) {
         self.coordinator = coordinator
-    }
-
-    private func listenToItems() {
-        viewModel.sourcePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] items in
-                guard let self, !isEditing else { return }
-                DispatchQueue.main.async {
-                    items.forEach { (key, value) in self.fetchedSource[key] = value }
-                    self.tableView.reloadData()
-                }
-            }
-            .store(in: &cancellables)
     }
 
     private func setupTableView() {
@@ -108,7 +103,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
 
         view.addSubview(tableView)
         tableView.translatesAutoresizingMaskIntoConstraints = false
-
+        tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         tableView.register(ListItemViewCell.self, forCellReuseIdentifier: "ListItemViewCell")
         tableView.backgroundColor = .clear
         tableView.separatorStyle = .none
@@ -125,13 +120,13 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         }
 
         addButton.snp.makeConstraints { make in
-            make.top.equalTo(textField.snp.bottom)
-            make.leading.equalTo(textField.snp.leading)
-            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing)
+            make.top.equalTo(textField.snp.bottom).offset(15)
+            make.leading.equalTo(view.safeAreaLayoutGuide.snp.leading).inset(15)
+            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing).inset(15)
         }
 
         tableView.snp.makeConstraints { make in
-            make.top.equalTo(addButton.snp.bottom)
+            make.top.equalTo(addButton.snp.bottom).offset(15)
             make.leading.equalTo(view.safeAreaLayoutGuide.snp.leading)
             make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing)
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
@@ -148,23 +143,21 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         items.append(text)
         textField.text = ""
         textField.resignFirstResponder()
-    }
-
-    override func setEditing(_ editing: Bool, animated: Bool) {
-        super.setEditing(editing, animated: true)
-        tableView.setEditing(editing, animated: true)
+//        tableView.beginUpdates()
+//        tableView.insertRows(at: [IndexPath.init(row: self.dataSource.count-1, section: 0)], with: .automatic)
+//        tableView.endUpdates()
     }
 
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
-
         if editingStyle == .delete {
+            viewModel.sendMessage(.unsubscribe, for: [items[indexPath.row]])
+            dataSource.removeValue(forKey: items[indexPath.row])
             items.remove(at: indexPath.row)
-            tableView.deleteRows(at: [indexPath], with: .fade)
         }
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        items.count
+        dataSource.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -174,13 +167,19 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         ) as? ListItemViewCell else {
             return ListItemViewCell()
         }
-        cell.configure(with: fetchedSource[items[indexPath.row]])
+
+        cell.configure(with: dataSource[items[indexPath.row]])
+
         return cell
     }
 
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        guard let data = fetchedSource[items[indexPath.row]]  else { return }
+    override func setEditing(_ editing: Bool, animated: Bool) {
+        super.setEditing(editing, animated: animated)
+        tableView.setEditing(editing, animated: animated)
+    }
 
-        coordinator?.showDetailsView()
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        viewModel.sendMessage(.unsubscribe, for: items)
+        coordinator?.showDetailsView(for: items[indexPath.row])
     }
 }

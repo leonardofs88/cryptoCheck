@@ -1,17 +1,16 @@
-    //
-    //  ListItemViewCell.swift
-    //  cryptoCheck
-    //
-    //  Created by Leonardo Soares on 27/10/2025.
-    //
+//
+//  ListItemViewCell.swift
+//  cryptoCheck
+//
+//  Created by Leonardo Soares on 27/10/2025.
+//
 
 import UIKit
 import SnapKit
 import Factory
+import Combine
 
 class ListItemViewCell: UITableViewCell {
-
-    @Injected(\.webSocketManager) var webSocketManager
 
     private var didSetupConstraints = false
     private let inset: CGFloat = 15
@@ -23,6 +22,14 @@ class ListItemViewCell: UITableViewCell {
     private var title: String?
 
     private let currencyValueLabel: UILabel = {
+        let label = UILabel()
+        label.textColor = .black
+        label.font = .systemFont(ofSize: 20, weight: .bold)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
+    private let timestamp: UILabel = {
         let label = UILabel()
         label.textColor = .black
         label.font = .systemFont(ofSize: 20, weight: .bold)
@@ -83,6 +90,7 @@ class ListItemViewCell: UITableViewCell {
         titleView.translatesAutoresizingMaskIntoConstraints = false
         titleView.addSubview(currencyValueLabel)
         titleView.addSubview(indicatorIcon)
+        titleView.addSubview(timestamp)
         container.addSubview(titleView)
 
         mainStackView.axis = .vertical
@@ -144,20 +152,89 @@ class ListItemViewCell: UITableViewCell {
             make.leading.equalTo(currencyValueLabel.snp.trailing).offset(10)
             make.bottom.equalToSuperview()
         }
+
+        timestamp.snp.makeConstraints { make in
+            make.top.equalToSuperview()
+            make.leading.equalTo(indicatorIcon.snp.trailing).offset(10)
+            make.bottom.equalToSuperview()
+        }
     }
 
     func configure(with price: PriceModel?) {
         guard let price else { return }
         DispatchQueue.main.async {
+            let date = Date.now
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm:ss, d MM y"
+
+            let priceChange = Double(price.priceChange)
+            let numberFormatter = NumberFormatter()
+            numberFormatter.numberStyle = .currency
+            numberFormatter.locale = Locale.current
+            numberFormatter.minimumFractionDigits = 2
+            numberFormatter.maximumFractionDigits = 6
+
+            self.timestamp.text = formatter.string(from: date)
             self.currencyValueLabel.text = price.symbol
-            self.ammountValueLabel.text = price.priceChange
+            self.ammountValueLabel.text = if let change = priceChange {
+                numberFormatter.string(from: NSNumber(value: change))
+            } else {
+                "--"
+            }
             self.percentageValueLabel.text = Double(price.priceChangePercent)?.formatted(.percent) ?? 0.00.formatted(.percent)
 
-            if let currentPrice = Double(price.priceChange) {
-                self.indicatorIcon.image = UIImage(systemName: currentPrice > self.lastPrice ? "chevron.down.2" : "chevron.up.2")
-                self.indicatorIcon.tintColor = currentPrice > self.lastPrice ? .red : .green
+            if let currentPrice = priceChange {
+                let icon = if currentPrice == self.lastPrice {
+                    "slash.circle"
+                } else {
+                    currentPrice > self.lastPrice ? "chevron.up.2" : "chevron.down.2"
+                }
+
+                let color: UIColor = if currentPrice == self.lastPrice {
+                    .gray
+                } else {
+                    currentPrice > self.lastPrice ? .green : .red
+                }
+
+                print("========Check price========")
+                print("Current price:", self.ammountValueLabel.text)
+                print("Last price:", self.lastPrice)
+                print("Icon:", icon)
+                print("Color:", color.name)
+                print("Date:", formatter.string(from: date))
+                print("===========================")
+
+                self.indicatorIcon.image = UIImage(systemName: icon)
+                self.indicatorIcon.tintColor = color
                 self.lastPrice = currentPrice
             }
+
+        }
+    }
+
+    deinit {
+        print("cell deinited")
+    }
+}
+
+extension UIColor {
+    var name: String? {
+        switch self {
+        case UIColor.black: return "black"
+        case UIColor.darkGray: return "darkGray"
+        case UIColor.lightGray: return "lightGray"
+        case UIColor.white: return "white"
+        case UIColor.gray: return "gray"
+        case UIColor.red: return "red"
+        case UIColor.green: return "green"
+        case UIColor.blue: return "blue"
+        case UIColor.cyan: return "cyan"
+        case UIColor.yellow: return "yellow"
+        case UIColor.magenta: return "magenta"
+        case UIColor.orange: return "orange"
+        case UIColor.purple: return "purple"
+        case UIColor.brown: return "brown"
+        default: return nil
         }
     }
 }
