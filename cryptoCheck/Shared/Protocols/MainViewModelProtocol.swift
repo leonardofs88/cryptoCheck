@@ -18,5 +18,5 @@ protocol MainViewModelProtocol<T> {
     var sourcePublisher: PassthroughSubject<T, Never> { get }
 
     func startObsevingSocket()
-    func sendMessage(_ method: WebSocketRequestMethod, for items: [String])
+    func sendMessage(_ method: WebSocketRequestMethod, for items: [String]?)
 }

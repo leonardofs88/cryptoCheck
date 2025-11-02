@@ -22,8 +22,13 @@ class MainViewModel<T: Codable>: MainViewModelProtocol {
         listenToWebSocket()
     }
 
-    func sendMessage(_ method: WebSocketRequestMethod = .subscribe, for items: [String]) {
-        let symbols = items.map { $0.lowercased() + "@ticker"}
+    func sendMessage(_ method: WebSocketRequestMethod = .subscribe, for items: [String]?) {
+        let symbols: [String]? = if let items {
+            items.map { $0.lowercased() + "@ticker"}
+        } else {
+            nil
+        }
+
         webSocketManager.sendMessage(with: WebSocketBody(method: method, params: symbols))
     }
 

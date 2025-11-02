@@ -11,7 +11,7 @@ import SnapKit
 import Factory
 import Combine
 
-protocol MainViewControllerProtocol<T>: UITableViewDataSource, UITableViewDelegate {
+protocol MainViewControllerProtocol<T>: UITableViewDataSource, UITableViewDelegate, UITextFieldDelegate {
     // swiftlint:disable:next type_name
     associatedtype T = Codable
 
@@ -21,24 +21,29 @@ protocol MainViewControllerProtocol<T>: UITableViewDataSource, UITableViewDelega
 
 class MainViewController<T: Codable>: UIViewController, MainViewControllerProtocol {
 
-    private(set) weak var coordinator: (any CoordinatorProtocol)?
-
     @LazyInjected(\.mainViewModel) private(set) var viewModel
+
+    private(set) weak var coordinator: (any CoordinatorProtocol)?
 
     private lazy var tableView = UITableView()
 
-    private var dataSource: [String: PriceModel] = [:] {
-        didSet {
-            tableView.reloadData()
-        }
-    }
-
-    private let textField: UITextField = {
+    private lazy var textField: UITextField = {
         let field = UITextField()
+        field.font = .systemFont(ofSize: 25, weight: .semibold)
+        field.textColor = .appText
+        field.delegate = self
         field.placeholder = "E.g.: BTCUSDT"
-        field.borderStyle = .roundedRect
+        field.backgroundColor = .clear
+        field.tintColor = .appText
         field.translatesAutoresizingMaskIntoConstraints = false
         return field
+    }()
+
+    private lazy var dividerView: UIView = {
+        var view = UIView(frame: .zero)
+        view.backgroundColor = .cardBackground
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
     }()
 
     private let addButton: UIButton = {
@@ -46,14 +51,16 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         button.setTitle("Add", for: .normal)
         button.setTitle("Reached max items", for: .disabled)
         button.titleLabel?.font = .boldSystemFont(ofSize: 16)
+        button.configuration?.background.backgroundColor = .cardBackground
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
     }()
 
+    private var dataSource: [String: PriceModel] = [:]
     private var items: [String] = [] {
         didSet {
             DispatchQueue.main.async {
-                if self.items.count < 5 {
+                if self.items.count <= 5 {
                     self.viewModel.sendMessage(.subscribe, for: self.items)
                     self.addButton.isEnabled = true
                 } else {
@@ -70,6 +77,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
 
         view.backgroundColor = .mainBackground
         navigationItem.rightBarButtonItem = editButtonItem
+        navigationItem.rightBarButtonItem?.tintColor = .appText
 
         setupTableView()
     }
@@ -77,20 +85,9 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if !items.isEmpty {
-            viewModel.startObsevingSocket()
             viewModel.sendMessage(.subscribe, for: items)
+            viewModel.sendMessage(.listSubscriptions, for: nil)
         }
-        listenToChanges()
-    }
-
-    private func listenToChanges() {
-        viewModel.sourcePublisher
-            .receive(on: DispatchQueue.main)
-            .compactMap({ $0 })
-            .sink { [weak self] fetchedItem in
-                guard let self, !isEditing else { return }
-                self.dataSource[fetchedItem.symbol] = fetchedItem
-            }.store(in: &cancellables)
     }
 
     func setCoordinator(_ coordinator: any CoordinatorProtocol) {
@@ -99,6 +96,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
 
     private func setupTableView() {
         view.addSubview(textField)
+        view.addSubview(dividerView)
         view.addSubview(addButton)
 
         view.addSubview(tableView)
@@ -119,8 +117,15 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
             make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing).inset(15)
         }
 
+        dividerView.snp.makeConstraints { make in
+            make.height.equalTo(1)
+            make.top.equalTo(textField.snp.bottom).offset(5)
+            make.leading.equalTo(view.safeAreaLayoutGuide.snp.leading).inset(15)
+            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing).inset(15)
+        }
+
         addButton.snp.makeConstraints { make in
-            make.top.equalTo(textField.snp.bottom).offset(15)
+            make.top.equalTo(dividerView.snp.bottom).offset(15)
             make.leading.equalTo(view.safeAreaLayoutGuide.snp.leading).inset(15)
             make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing).inset(15)
         }
@@ -143,21 +148,34 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         items.append(text)
         textField.text = ""
         textField.resignFirstResponder()
-//        tableView.beginUpdates()
-//        tableView.insertRows(at: [IndexPath.init(row: self.dataSource.count-1, section: 0)], with: .automatic)
-//        tableView.endUpdates()
+        tableView.beginUpdates()
+        tableView.insertRows(at: [IndexPath.init(row: items.count-1, section: 0)], with: .automatic)
+        tableView.endUpdates()
     }
 
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
-            viewModel.sendMessage(.unsubscribe, for: [items[indexPath.row]])
-            dataSource.removeValue(forKey: items[indexPath.row])
-            items.remove(at: indexPath.row)
+            guard let cell = tableView.dequeueReusableCell(
+                withIdentifier: "ListItemViewCell",
+                for: indexPath
+            ) as? ListItemViewCell else {
+                return
+            }
+            DispatchQueue.main.async {
+                cell.cancellable?.cancel()
+                cell.cancellable = nil
+                self.viewModel.sendMessage(.unsubscribe, for: [self.items[indexPath.row]])
+                self.items.remove(at: indexPath.row)
+                tableView.beginUpdates()
+                tableView.deleteRows(at: [indexPath], with: .left)
+                tableView.endUpdates()
+                tableView.endEditing(true)
+            }
         }
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        dataSource.count
+        items.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -168,7 +186,15 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
             return ListItemViewCell()
         }
 
-        cell.configure(with: dataSource[items[indexPath.row]])
+        cell.cancellable = viewModel.sourcePublisher
+            .receive(on: DispatchQueue.main)
+            .filter({ [weak self] item in
+                guard let self, !isEditing, items.indices.contains(indexPath.row) else { return false }
+                return item.symbol == items[indexPath.row]
+            })
+            .sink(receiveValue: { value in
+                cell.configure(with: value)
+            })
 
         return cell
     }
@@ -181,5 +207,23 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         viewModel.sendMessage(.unsubscribe, for: items)
         coordinator?.showDetailsView(for: items[indexPath.row])
+    }
+
+    // MARK: - UITextFieldDelegate
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+
+        if textField == self.textField {
+            if string == "" {
+                // User presses backspace
+                textField.deleteBackward()
+            } else {
+                // User presses a key or pastes
+                textField.insertText(string.uppercased())
+            }
+            // Do not let specified text range to be changed
+            return false
+        }
+
+        return true
     }
 }

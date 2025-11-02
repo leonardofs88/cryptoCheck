@@ -71,7 +71,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
             sendMessage(with: body)
         } else {
             webSocketActionState.send(.sendingMessage)
-            sendMessage(bodyString) { [weak self] error in
+            webSocketTask?.send(.string(bodyString)) { [weak self] error in
                 guard let self else { return }
                 if let error {
                     webSocketActionState.send(
@@ -83,11 +83,13 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                     )
                     sendMessage(with: body)
                     retrySendCount += 1
+
+                    print(":::", #function, "===>> SEND MESSAGE ERROR: \(error.localizedDescription) ||")
                     return
                 }
 
                 retrySendCount = 0
-                print(":::", #function, "===>> MESSAGE SENT ||")
+                webSocketActionState.send(.messageSent)
                 receiveMessage()
             }
         }
@@ -105,18 +107,6 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         } else {
             print(":::", #function, "===>> MAX RETRY REACHED =||")
             print(":::", #function, "===>> AWAITING RECONNECTION =||")
-        }
-    }
-
-    private func sendMessage(_ message: String, completion: @escaping (Error?) -> Void) {
-        webSocketTask?.send(.string(message)) { error in
-            if let error {
-                print(":::", #function, "===>> SEND MESSAGE ERROR: \(error.localizedDescription) ||")
-                completion(error)
-                return
-            }
-            self.webSocketActionState.send(.messageSent)
-            completion(nil)
         }
     }
 

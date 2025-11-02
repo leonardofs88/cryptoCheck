@@ -12,70 +12,91 @@ import Combine
 
 class ListItemViewCell: UITableViewCell {
 
-    private var didSetupConstraints = false
+    var cancellable: AnyCancellable?
+
     private let inset: CGFloat = 15
-    private let container = UIView()
-    private let mainStackView = UIStackView()
-    private let titleView = UIView()
 
     private var lastPrice: Double = 0.0
     private var title: String?
 
-    private let currencyValueLabel: UILabel = {
+    // MARK: - UI Items
+    private lazy var container = UIView()
+    private lazy var mainStackView = UIStackView()
+    private lazy var titleView = UIView()
+
+    private lazy var currencyValueLabel: UILabel = {
         let label = UILabel()
-        label.textColor = .black
+        label.textColor = .cardText
         label.font = .systemFont(ofSize: 20, weight: .bold)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
 
-    private let timestamp: UILabel = {
+    private lazy var timestamp: UILabel = {
         let label = UILabel()
-        label.textColor = .black
-        label.font = .systemFont(ofSize: 20, weight: .bold)
+        label.textColor = .cardText
+        label.font = .systemFont(ofSize: 12, weight: .light)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
 
-    private let indicatorIcon: UIImageView = {
+    private lazy var indicatorIcon: UIImageView = {
         let image = UIImageView(image: UIImage(systemName: "slash.circle"))
         image.frame = CGRect(x: 0, y: 0, width: 40, height: 40)
-
+        image.tintColor = .unchanged
         return image
     }()
 
-    private let ammountValueLabel: UILabel = {
+    private lazy var ammountValueLabel: UILabel = {
         let label = UILabel()
-        label.textColor = .black
+        label.textColor = .cardText
         label.textAlignment = .right
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
 
-    private let percentageValueLabel: UILabel = {
+    private lazy var percentageValueLabel: UILabel = {
         let label = UILabel()
-        label.textColor = .black
+        label.textColor = .cardText
         label.textAlignment = .right
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
 
-    private let ammountLabel: UILabel = {
+    private lazy var currentValueLabel: UILabel = {
         let label = UILabel()
-        label.textColor = .black
-        label.text = "Ammount:"
+        label.textColor = .cardText
+        label.textAlignment = .right
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
 
-    private let percentageLabel: UILabel = {
+
+    private lazy var currentLabel: UILabel = {
         let label = UILabel()
-        label.textColor = .black
-        label.text = "Percentage:"
+        label.textColor = .cardText
+        label.text = "Current value:"
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
 
+    private lazy var ammountLabel: UILabel = {
+        let label = UILabel()
+        label.textColor = .cardText
+        label.text = "Ammount changed:"
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
+    private lazy var percentageLabel: UILabel = {
+        let label = UILabel()
+        label.textColor = .cardText
+        label.text = "Change percentage:"
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
+    // MARK: - Init
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         self.backgroundColor = .clear
@@ -86,7 +107,9 @@ class ListItemViewCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // MARK: - Private functions
     private func setupViews() {
+        restartFields()
         titleView.translatesAutoresizingMaskIntoConstraints = false
         titleView.addSubview(currencyValueLabel)
         titleView.addSubview(indicatorIcon)
@@ -99,13 +122,14 @@ class ListItemViewCell: UITableViewCell {
         mainStackView.layoutMargins = UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
         mainStackView.isLayoutMarginsRelativeArrangement = true
         mainStackView.translatesAutoresizingMaskIntoConstraints = false
-        mainStackView.backgroundColor = .white
+        mainStackView.backgroundColor = .cardBackground
         mainStackView.layer.cornerRadius = 12
         mainStackView.layer.masksToBounds = true
 
         mainStackView.addArrangedSubview(titleView)
         container.addSubview(mainStackView)
 
+        setupLine(for: currentLabel, and: currentValueLabel)
         setupLine(for: ammountLabel, and: ammountValueLabel)
         setupLine(for: percentageLabel, and: percentageValueLabel)
 
@@ -155,9 +179,24 @@ class ListItemViewCell: UITableViewCell {
 
         timestamp.snp.makeConstraints { make in
             make.top.equalToSuperview()
-            make.leading.equalTo(indicatorIcon.snp.trailing).offset(10)
+            make.trailing.equalToSuperview().offset(10)
             make.bottom.equalToSuperview()
         }
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        cancellable?.cancel()
+        cancellable = nil
+        restartFields()
+    }
+
+    private func restartFields() {
+        self.timestamp.text = "--"
+        self.currencyValueLabel.text = "Loading Items...."
+        self.ammountValueLabel.text = "--"
+        self.percentageValueLabel.text = "--"
+        self.indicatorIcon.image = UIImage(systemName: "slash.circle")
     }
 
     func configure(with price: PriceModel?) {
@@ -165,10 +204,13 @@ class ListItemViewCell: UITableViewCell {
         DispatchQueue.main.async {
             let date = Date.now
             let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm:ss, d MM y"
+            formatter.dateFormat = "HH:mm:ss, d MMM y"
 
             let priceChange = Double(price.priceChange)
+            let currentValue = Double(price.lastPrice)
+
             let numberFormatter = NumberFormatter()
+
             numberFormatter.numberStyle = .currency
             numberFormatter.locale = Locale.current
             numberFormatter.minimumFractionDigits = 2
@@ -176,6 +218,13 @@ class ListItemViewCell: UITableViewCell {
 
             self.timestamp.text = formatter.string(from: date)
             self.currencyValueLabel.text = price.symbol
+
+            self.currentValueLabel.text = if let current = currentValue {
+                numberFormatter.string(from: NSNumber(value: current))
+            } else {
+                "--"
+            }
+
             self.ammountValueLabel.text = if let change = priceChange {
                 numberFormatter.string(from: NSNumber(value: change))
             } else {
@@ -191,50 +240,15 @@ class ListItemViewCell: UITableViewCell {
                 }
 
                 let color: UIColor = if currentPrice == self.lastPrice {
-                    .gray
+                    .unchanged
                 } else {
-                    currentPrice > self.lastPrice ? .green : .red
+                    currentPrice > self.lastPrice ? .positive : .negative
                 }
-
-                print("========Check price========")
-                print("Current price:", self.ammountValueLabel.text)
-                print("Last price:", self.lastPrice)
-                print("Icon:", icon)
-                print("Color:", color.name)
-                print("Date:", formatter.string(from: date))
-                print("===========================")
 
                 self.indicatorIcon.image = UIImage(systemName: icon)
                 self.indicatorIcon.tintColor = color
                 self.lastPrice = currentPrice
             }
-
-        }
-    }
-
-    deinit {
-        print("cell deinited")
-    }
-}
-
-extension UIColor {
-    var name: String? {
-        switch self {
-        case UIColor.black: return "black"
-        case UIColor.darkGray: return "darkGray"
-        case UIColor.lightGray: return "lightGray"
-        case UIColor.white: return "white"
-        case UIColor.gray: return "gray"
-        case UIColor.red: return "red"
-        case UIColor.green: return "green"
-        case UIColor.blue: return "blue"
-        case UIColor.cyan: return "cyan"
-        case UIColor.yellow: return "yellow"
-        case UIColor.magenta: return "magenta"
-        case UIColor.orange: return "orange"
-        case UIColor.purple: return "purple"
-        case UIColor.brown: return "brown"
-        default: return nil
         }
     }
 }
