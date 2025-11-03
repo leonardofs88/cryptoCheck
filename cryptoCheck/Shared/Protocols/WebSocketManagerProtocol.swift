@@ -13,7 +13,6 @@ protocol WebSocketManagerProtocol<T>: URLSessionWebSocketDelegate {
     associatedtype T = Codable
 
     var reachabilityHelper: ReachabilityMonitorHelperProtocol { get }
-    var connectionMonitor: ReachabilityMonitorHelper { get }
     var cancellables: Set<AnyCancellable> { get }
     var session: URLSession { get }
     var webSocketTask: URLSessionWebSocketTask? { get }

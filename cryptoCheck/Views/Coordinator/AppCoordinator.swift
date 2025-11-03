@@ -14,6 +14,10 @@ class AppCoordinator: CoordinatorProtocol {
 
     var navigationController: UINavigationController
 
+    let offlineAlert = UIAlertController(title: "It seems that we are offline",
+                                  message: "Please, check your internet connection and wait to reconnect.",
+                                  preferredStyle: .alert)
+
     init(navigationController: UINavigationController) {
         self.navigationController = navigationController
     }
@@ -36,5 +40,13 @@ class AppCoordinator: CoordinatorProtocol {
         if children.popLast() != nil {
             navigationController.popViewController(animated: true)
         }
+    }
+
+    func showOfflineMessage() {
+        navigationController.present(offlineAlert, animated: true)
+    }
+
+    func hideOfflineMessage() {
+        offlineAlert.dismiss(animated: true)
     }
 }

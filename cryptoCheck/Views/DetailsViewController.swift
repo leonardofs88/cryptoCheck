@@ -15,7 +15,9 @@ class DetailsViewController: UIViewController {
     @Injected(\.mainViewModel) private var mainViewModel
 
     private weak var coordinator: CoordinatorProtocol?
+
     private var symbol: String?
+
     private var price: PriceModel? {
         didSet {
             DispatchQueue.main.async {
@@ -25,14 +27,25 @@ class DetailsViewController: UIViewController {
     }
     private var cancellable: AnyCancellable?
 
+    private lazy var numberFormatter: NumberFormatter = {
+        let numberFormatter = NumberFormatter()
+        numberFormatter.numberStyle = .currency
+        numberFormatter.locale = Locale.current
+        numberFormatter.minimumFractionDigits = 2
+        numberFormatter.maximumFractionDigits = 6
+        return numberFormatter
+    }()
+
     // MARK: - UI Components
 
-    private let containerStackView: UIStackView = {
+    private lazy var containerStackView: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .vertical
-        stackView.distribution = .fillEqually
-        stackView.spacing = 8
+        stackView.spacing = 15
+        stackView.distribution = .equalSpacing
         stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.isLayoutMarginsRelativeArrangement = true
+        stackView.layoutMargins = UIEdgeInsets(top: 15, left: 15, bottom: 15, right: 15)
         return stackView
     }()
 
@@ -46,7 +59,6 @@ class DetailsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        navigationItem.title = price?.symbol.uppercased()
         view.backgroundColor = .mainBackground
         setupViews()
         listenToChanges()
@@ -77,6 +89,7 @@ class DetailsViewController: UIViewController {
 
     func setData(symbol: String) {
         self.symbol = symbol
+
     }
 
     private func listenToChanges() {
@@ -94,41 +107,60 @@ class DetailsViewController: UIViewController {
     }
 
     private func updateViews() {
-        nameDetail.configure(title: "Symbol", value: price?.symbol ?? "Not available")
 
-        lastPriceDetail.configure(
-            title: "Last Price",
-            value: Double(price?.lastPrice ?? "")?.formatted(.currency(code: "USD")) ?? "Not available"
-        )
+        navigationItem.title = price?.symbol.uppercased()
 
-        priceChangeDetail.configure(
-            title: "Ammount changed",
-            value: Double(price?.priceChange ?? "")?.formatted(.currency(code: "USD")) ?? "Not available"
-        )
+        nameDetail.configure(title: "Symbol", value: price?.symbol ?? "Loading data...")
 
-        priceChangePercentDetail.configure(
-            title: "Ammount changed percent",
-            value: Double(price?.priceChangePercent ?? "")?.formatted(.percent) ?? "Not available"
-        )
+        if let lastPrice = Double(price?.lastPrice ?? ""), let formated = numberFormatter.string(from: NSNumber(value: lastPrice)) {
+            lastPriceDetail.configure(
+                title: "Last Price",
+                value: formated
+            )
+        }
 
-        openPriceDetail.configure(
-            title: "Open price",
-            value: Double(
-                price?.openPrice ?? ""
-            )?.formatted(.currency(code: "USD")) ?? "Not available"
-        )
+        if let priceChange = Double(price?.priceChange ?? ""), let formated = numberFormatter.string(
+            from: NSNumber(value: priceChange)
+        ) {
+            priceChangeDetail.configure(
+                title: "Ammount changed",
+                value: formated
+            )
+        }
 
-        highPriceDetail.configure(
-            title: "Highest price",
-            value: Double(
-                price?.highPrice ?? ""
-            )?.formatted(.currency(code: "USD")) ?? "Not available"
-        )
+        if let priceChangePercent = price?.priceChangePercent, let formatted = Double(priceChangePercent)?.formatted(.percent) {
+            priceChangePercentDetail.configure(
+                title: "Ammount changed percent",
+                value:  formatted
+            )
+        }
 
-        lowPriceDetail.configure(
-            title: "Lowest price",
-            value: Double(price?.lowPrice ?? "")?.formatted(.currency(code: "USD")) ?? "Not available"
-        )
+        if let openPrice = Double(price?.openPrice ?? ""), let formated = numberFormatter.string(
+            from: NSNumber(value: openPrice)
+        ) {
+            openPriceDetail.configure(
+                title: "Open price",
+                value: formated
+            )
+        }
+
+        if let highPrice = Double(price?.highPrice ?? ""), let formated = numberFormatter.string(
+            from: NSNumber(value: highPrice)
+        ) {
+            highPriceDetail.configure(
+                title: "Highest price",
+                value: formated
+            )
+        }
+
+        if let lowPrice = Double(price?.lowPrice ?? ""), let formated = numberFormatter.string(
+            from: NSNumber(value: lowPrice)
+        ) {
+            lowPriceDetail.configure(
+                title: "Lowest price",
+                value: formated
+            )
+        }
     }
 
     private func setupViews() {
@@ -150,54 +182,52 @@ class DetailsViewController: UIViewController {
         containerStackView.addArrangedSubview(lowPriceDetail)
 
         containerStackView.snp.makeConstraints { make in
-            make.edges.equalTo(view.safeAreaLayoutGuide).inset(20)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).inset(15)
+            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing).inset(15)
+            make.leading.equalTo(view.safeAreaLayoutGuide.snp.leading).inset(15)
         }
+
+        containerStackView.backgroundColor = .cardBackground
+        containerStackView.layer.cornerRadius = 12
+
         updateViews()
     }
 }
 
-class DetailItem: UIView {
-
+class DetailItem: UIStackView {
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 17, weight: .bold)
+        label.numberOfLines = 3
+        label.textColor = .cardText
         return label
     }()
 
     private let valueLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 17, weight: .semibold)
+        label.font = .systemFont(ofSize: 17, weight: .light)
+        label.textColor = .cardText
+        label.textAlignment = .right
         return label
-    }()
-
-    private let mainStackView = {
-        let stackView = UIStackView()
-        stackView.axis = .horizontal
-        stackView.distribution = .fillEqually
-        stackView.spacing = 8
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        return stackView
     }()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+
+        axis = .horizontal
+        distribution = .fillEqually
+        translatesAutoresizingMaskIntoConstraints = false
+        isHidden = true
     }
 
-    required init?(coder: NSCoder) {
+    required init(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
     private func setupViews() {
-        mainStackView.addArrangedSubview(titleLabel)
-        mainStackView.addArrangedSubview(valueLabel)
-        addSubview(mainStackView)
-
-        mainStackView.snp.makeConstraints { make in
-            make.top.equalToSuperview()
-            make.bottom.equalToSuperview()
-            make.leading.equalToSuperview()
-            make.trailing.equalToSuperview()
-        }
+        addArrangedSubview(titleLabel)
+        addArrangedSubview(valueLabel)
+        isHidden = false
     }
 
     func configure(title: String, value: String) {

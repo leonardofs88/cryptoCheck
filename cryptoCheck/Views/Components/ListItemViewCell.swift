@@ -20,9 +20,42 @@ class ListItemViewCell: UITableViewCell {
     private var title: String?
 
     // MARK: - UI Items
-    private lazy var container = UIView()
-    private lazy var mainStackView = UIStackView()
-    private lazy var titleView = UIView()
+
+    private lazy var mainStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.distribution = .fillProportionally
+        stackView.spacing = inset
+        stackView.layoutMargins = UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.backgroundColor = .cardBackground
+        stackView.layer.cornerRadius = 12
+        stackView.layer.masksToBounds = true
+        return stackView
+    }()
+
+    private lazy var infoStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.distribution = .fillEqually
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.isLayoutMarginsRelativeArrangement = true
+        stackView.layoutMargins = UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
+        stackView.layer.masksToBounds = true
+        return stackView
+    }()
+
+    private lazy var titleStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.distribution = .equalSpacing
+        stackView.alignment = .center
+        stackView.isLayoutMarginsRelativeArrangement = true
+        stackView.layoutMargins = UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.layer.masksToBounds = true
+        return stackView
+    }()
 
     private lazy var currencyValueLabel: UILabel = {
         let label = UILabel()
@@ -71,7 +104,6 @@ class ListItemViewCell: UITableViewCell {
         return label
     }()
 
-
     private lazy var currentLabel: UILabel = {
         let label = UILabel()
         label.textColor = .cardText
@@ -110,77 +142,36 @@ class ListItemViewCell: UITableViewCell {
     // MARK: - Private functions
     private func setupViews() {
         restartFields()
-        titleView.translatesAutoresizingMaskIntoConstraints = false
-        titleView.addSubview(currencyValueLabel)
-        titleView.addSubview(indicatorIcon)
-        titleView.addSubview(timestamp)
-        container.addSubview(titleView)
+        titleStackView.addArrangedSubview(currencyValueLabel)
+        titleStackView.addArrangedSubview(indicatorIcon)
+        titleStackView.addArrangedSubview(timestamp)
 
-        mainStackView.axis = .vertical
-        mainStackView.distribution = .fillEqually
-        mainStackView.spacing = inset
-        mainStackView.layoutMargins = UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
-        mainStackView.isLayoutMarginsRelativeArrangement = true
-        mainStackView.translatesAutoresizingMaskIntoConstraints = false
-        mainStackView.backgroundColor = .cardBackground
-        mainStackView.layer.cornerRadius = 12
-        mainStackView.layer.masksToBounds = true
-
-        mainStackView.addArrangedSubview(titleView)
-        container.addSubview(mainStackView)
+        mainStackView.addArrangedSubview(titleStackView)
 
         setupLine(for: currentLabel, and: currentValueLabel)
         setupLine(for: ammountLabel, and: ammountValueLabel)
         setupLine(for: percentageLabel, and: percentageValueLabel)
 
-        contentView.addSubview(container)
+        mainStackView.addArrangedSubview(infoStackView)
+
+        contentView.addSubview(mainStackView)
         setupConstraints()
     }
 
     private func setupLine(for title: UIView, and value: UIView) {
         let lineStack = UIStackView()
-        let lineContainer = UIView()
         value.contentMode = .scaleAspectFit
         lineStack.axis = .horizontal
         lineStack.addArrangedSubview(title)
         lineStack.addArrangedSubview(value)
         lineStack.distribution = .fillEqually
-        lineContainer.addSubview(lineStack)
 
-        lineStack.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-        mainStackView.addArrangedSubview(lineContainer)
+        infoStackView.addArrangedSubview(lineStack)
     }
 
     private func setupConstraints() {
-        container.snp.makeConstraints { make in
-            make.top.equalToSuperview().inset(20)
-            make.trailing.equalToSuperview().inset(20)
-            make.bottom.equalToSuperview().inset(20)
-            make.leading.equalToSuperview().inset(20)
-        }
-
         mainStackView.snp.makeConstraints { make in
-            make.size.equalToSuperview()
-        }
-
-        currencyValueLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview()
-            make.leading.equalToSuperview()
-            make.bottom.equalToSuperview()
-        }
-
-        indicatorIcon.snp.makeConstraints { make in
-            make.top.equalToSuperview()
-            make.leading.equalTo(currencyValueLabel.snp.trailing).offset(10)
-            make.bottom.equalToSuperview()
-        }
-
-        timestamp.snp.makeConstraints { make in
-            make.top.equalToSuperview()
-            make.trailing.equalToSuperview().offset(10)
-            make.bottom.equalToSuperview()
+            make.edges.equalToSuperview().inset(15)
         }
     }
 
@@ -194,6 +185,7 @@ class ListItemViewCell: UITableViewCell {
     private func restartFields() {
         self.timestamp.text = "--"
         self.currencyValueLabel.text = "Loading Items...."
+        self.currentValueLabel.text = "--"
         self.ammountValueLabel.text = "--"
         self.percentageValueLabel.text = "--"
         self.indicatorIcon.image = UIImage(systemName: "slash.circle")
@@ -202,6 +194,7 @@ class ListItemViewCell: UITableViewCell {
     func configure(with price: PriceModel?) {
         guard let price else { return }
         DispatchQueue.main.async {
+            self.infoStackView.isHidden = false
             let date = Date.now
             let formatter = DateFormatter()
             formatter.dateFormat = "HH:mm:ss, d MMM y"

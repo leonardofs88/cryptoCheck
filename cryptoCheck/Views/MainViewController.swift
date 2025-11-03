@@ -17,14 +17,15 @@ protocol MainViewControllerProtocol<T>: UITableViewDataSource, UITableViewDelega
 
     var coordinator: (any CoordinatorProtocol)? { get }
     var viewModel: any MainViewModelProtocol<T> { get }
+
+    func setCoordinator(_ coordinator: any CoordinatorProtocol)
 }
 
 class MainViewController<T: Codable>: UIViewController, MainViewControllerProtocol {
 
     @LazyInjected(\.mainViewModel) private(set) var viewModel
 
-    private(set) weak var coordinator: (any CoordinatorProtocol)?
-
+    // MARK: - UI ITEMS
     private lazy var tableView = UITableView()
 
     private lazy var textField: UITextField = {
@@ -46,7 +47,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         return view
     }()
 
-    private let addButton: UIButton = {
+    private lazy var addButton: UIButton = {
         let button = UIButton(configuration: .borderedProminent())
         button.setTitle("Add", for: .normal)
         button.setTitle("Reached max items", for: .disabled)
@@ -56,28 +57,27 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         return button
     }()
 
-    private var dataSource: [String: PriceModel] = [:]
+    // MARK: - PROPERTIES
+
+    private(set) weak var coordinator: (any CoordinatorProtocol)?
+
     private var items: [String] = [] {
         didSet {
             DispatchQueue.main.async {
-                if self.items.count <= 5 {
-                    self.viewModel.sendMessage(.subscribe, for: self.items)
-                    self.addButton.isEnabled = true
-                } else {
-                    self.addButton.isEnabled = false
-                }
+                self.addButton.isEnabled = self.items.count != 5
+                self.viewModel.sendMessage(.subscribe, for: self.items)
             }
         }
     }
 
     private lazy var cancellables = Set<AnyCancellable>()
 
+    // MARK: - UIViewController lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
 
         view.backgroundColor = .mainBackground
         navigationItem.rightBarButtonItem = editButtonItem
-        navigationItem.rightBarButtonItem?.tintColor = .appText
 
         setupTableView()
     }
@@ -86,13 +86,17 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         super.viewWillAppear(animated)
         if !items.isEmpty {
             viewModel.sendMessage(.subscribe, for: items)
-            viewModel.sendMessage(.listSubscriptions, for: nil)
+            tableView.reloadData()
         }
     }
+
+    // MARK: - Public functions
 
     func setCoordinator(_ coordinator: any CoordinatorProtocol) {
         self.coordinator = coordinator
     }
+
+    // MARK: - Private functions
 
     private func setupTableView() {
         view.addSubview(textField)
@@ -152,6 +156,8 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         tableView.insertRows(at: [IndexPath.init(row: items.count-1, section: 0)], with: .automatic)
         tableView.endUpdates()
     }
+
+    // MARK: - UITableViewDelegate functions
 
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
@@ -214,13 +220,10 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
 
         if textField == self.textField {
             if string == "" {
-                // User presses backspace
                 textField.deleteBackward()
             } else {
-                // User presses a key or pastes
                 textField.insertText(string.uppercased())
             }
-            // Do not let specified text range to be changed
             return false
         }
 

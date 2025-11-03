@@ -18,4 +18,8 @@ protocol CoordinatorProtocol: AnyObject {
     func pop()
 
     func showDetailsView(for symbol: String)
+    
+    func showOfflineMessage()
+
+    func hideOfflineMessage()
 }

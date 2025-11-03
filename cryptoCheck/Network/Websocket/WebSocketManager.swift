@@ -17,18 +17,18 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
 
     @LazyInjected(\.reachabilityHelper) private(set) var reachabilityHelper
 
-    private(set) lazy var connectionMonitor = ReachabilityMonitorHelper()
     private(set) lazy var cancellables: Set<AnyCancellable> = []
     private(set) lazy var session: URLSession = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+
     private(set) var webSocketTask: URLSessionWebSocketTask?
     private(set) var lastMessage: URLSessionWebSocketTask.Message?
-    private(set) var subscriptionState: PassthroughSubject<WebSocketRequestMethod, Never> = .init()
     private(set) var managedItem: PassthroughSubject<T?, WebSocketError> = .init()
     private(set) var webSocketActionState: CurrentValueSubject<WebSocketActionState, Never> = .init(.closed)
     private(set) var timer: Timer?
     private(set) var retrySendCount = 0
     private(set) var retryConnectCount = 0
 
+    // MARK: - Init
     init(endpoint: Endpoint = .stream) {
         self.endpoint = endpoint
         super.init()
@@ -42,6 +42,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         timer = nil
     }
 
+    // MARK: - Public functions
     func setupWebSocket(portType: Port = .primary) {
         let webSocketRequest = if let webSocketRequest {
             webSocketRequest
@@ -110,6 +111,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         }
     }
 
+    // MARK: - Private functions
     private func observeWebSocketConnection() {
         webSocketActionState
             .receive(on: RunLoop.main)
@@ -137,7 +139,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
         print(":::", #function, "===>> START OBSERVING CONNECTION MONITOR ||")
         reachabilityHelper
             .networkStatus
-            .receive(on: RunLoop.main)
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] status in
                 guard let self else { return }
                 switch status {
@@ -148,7 +150,6 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                     print(":::", #function, "===>> CONNECTION MONITOR REACHABLE ||")
                     self.retrySendCount = 0
                     self.retryConnectCount = 0
-                    self.setupWebSocket()
                 }
             }
             .store(in: &cancellables)
@@ -212,7 +213,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
             case .string(let string):
                 if string.contains("result") {
                     let result = try JSONDecoder().decode(WebSocketResult.self, from: Data(string.utf8))
-                    print("Message result:", result)
+                    print(":::", #function, "===>> RESULT FROM SEND MESSAGE: \(result) ||")
                 } else {
                     managedItem.send(.some(try JSONDecoder().decode(T.self, from: Data(string.utf8))))
                 }
