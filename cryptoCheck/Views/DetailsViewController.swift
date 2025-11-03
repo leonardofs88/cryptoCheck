@@ -49,13 +49,13 @@ class DetailsViewController: UIViewController {
         return stackView
     }()
 
-    private let nameDetail = DetailItem()
-    private let lastPriceDetail = DetailItem()
-    private let priceChangeDetail = DetailItem()
-    private let priceChangePercentDetail = DetailItem()
-    private let openPriceDetail = DetailItem()
-    private let highPriceDetail = DetailItem()
-    private let lowPriceDetail = DetailItem()
+    private lazy var nameDetail = DetailItemStackView()
+    private lazy var lastPriceDetail = DetailItemStackView()
+    private lazy var priceChangeDetail = DetailItemStackView()
+    private lazy var priceChangePercentDetail = DetailItemStackView()
+    private lazy var openPriceDetail = DetailItemStackView()
+    private lazy var highPriceDetail = DetailItemStackView()
+    private lazy var lowPriceDetail = DetailItemStackView()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -191,49 +191,5 @@ class DetailsViewController: UIViewController {
         containerStackView.layer.cornerRadius = 12
 
         updateViews()
-    }
-}
-
-class DetailItem: UIStackView {
-    private let titleLabel: UILabel = {
-        let label = UILabel()
-        label.font = .systemFont(ofSize: 17, weight: .bold)
-        label.numberOfLines = 3
-        label.textColor = .cardText
-        return label
-    }()
-
-    private let valueLabel: UILabel = {
-        let label = UILabel()
-        label.font = .systemFont(ofSize: 17, weight: .light)
-        label.textColor = .cardText
-        label.textAlignment = .right
-        return label
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-
-        axis = .horizontal
-        distribution = .fillEqually
-        translatesAutoresizingMaskIntoConstraints = false
-        isHidden = true
-    }
-
-    required init(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupViews() {
-        addArrangedSubview(titleLabel)
-        addArrangedSubview(valueLabel)
-        isHidden = false
-    }
-
-    func configure(title: String, value: String) {
-        titleLabel.text = title
-        valueLabel.text = value
-        setupViews()
-        layoutIfNeeded()
     }
 }

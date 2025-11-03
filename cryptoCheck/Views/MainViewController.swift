@@ -107,6 +107,8 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         tableView.register(ListItemViewCell.self, forCellReuseIdentifier: "ListItemViewCell")
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = UITableView.automaticDimension
         tableView.backgroundColor = .clear
         tableView.separatorStyle = .none
         tableView.dataSource = self
@@ -161,15 +163,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
 
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
-            guard let cell = tableView.dequeueReusableCell(
-                withIdentifier: "ListItemViewCell",
-                for: indexPath
-            ) as? ListItemViewCell else {
-                return
-            }
             DispatchQueue.main.async {
-                cell.cancellable?.cancel()
-                cell.cancellable = nil
                 self.viewModel.sendMessage(.unsubscribe, for: [self.items[indexPath.row]])
                 self.items.remove(at: indexPath.row)
                 tableView.beginUpdates()
@@ -192,7 +186,9 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
             return ListItemViewCell()
         }
 
-        cell.cancellable = viewModel.sourcePublisher
+        cell.setupCell(items[indexPath.row])
+
+        viewModel.sourcePublisher
             .receive(on: DispatchQueue.main)
             .filter({ [weak self] item in
                 guard let self, !isEditing, items.indices.contains(indexPath.row) else { return false }
@@ -201,8 +197,17 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
             .sink(receiveValue: { value in
                 cell.configure(with: value)
             })
+            .store(in: &cell.cancellables)
 
         return cell
+    }
+
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return UITableView.automaticDimension
+    }
+
+    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
+        return UITableView.automaticDimension
     }
 
     override func setEditing(_ editing: Bool, animated: Bool) {

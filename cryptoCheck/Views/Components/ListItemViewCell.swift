@@ -12,47 +12,57 @@ import Combine
 
 class ListItemViewCell: UITableViewCell {
 
-    var cancellable: AnyCancellable?
+    lazy var cancellables = Set<AnyCancellable>()
 
     private let inset: CGFloat = 15
 
     private var lastPrice: Double = 0.0
     private var title: String?
+    private var timer: Timer?
 
     // MARK: - UI Items
 
     private lazy var mainStackView: UIStackView = {
         let stackView = UIStackView()
-        stackView.axis = .vertical
-        stackView.distribution = .fillProportionally
-        stackView.spacing = inset
-        stackView.layoutMargins = UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
-        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.axis = .horizontal
+        stackView.distribution = .equalSpacing
+        stackView.spacing = 0
+        stackView.isLayoutMarginsRelativeArrangement = true
+        stackView.layoutMargins = UIEdgeInsets(top: 5, left: 5, bottom: 5, right: 5)
         stackView.backgroundColor = .cardBackground
         stackView.layer.cornerRadius = 12
-        stackView.layer.masksToBounds = true
         return stackView
     }()
 
     private lazy var infoStackView: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .vertical
-        stackView.distribution = .fillEqually
-        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.distribution = .equalSpacing
+        stackView.spacing = 5
         stackView.isLayoutMarginsRelativeArrangement = true
-        stackView.layoutMargins = UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
-        stackView.layer.masksToBounds = true
+        stackView.layoutMargins = UIEdgeInsets(top: 5, left: 5, bottom: 5, right: 5)
+        return stackView
+    }()
+
+    private lazy var contentStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.alignment = .fill
+        stackView.distribution = .equalSpacing
+        stackView.spacing = 5
+        stackView.isLayoutMarginsRelativeArrangement = true
+        stackView.layoutMargins = UIEdgeInsets(top: 5, left: 5, bottom: 5, right: 5)
         return stackView
     }()
 
     private lazy var titleStackView: UIStackView = {
         let stackView = UIStackView()
-        stackView.axis = .horizontal
+        stackView.axis = .vertical
         stackView.distribution = .equalSpacing
-        stackView.alignment = .center
+        stackView.alignment = .leading
         stackView.isLayoutMarginsRelativeArrangement = true
-        stackView.layoutMargins = UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset)
-        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.layoutMargins = UIEdgeInsets(top: 5, left: 5, bottom: 5, right: 5)
+        stackView.spacing = 5
         stackView.layer.masksToBounds = true
         return stackView
     }()
@@ -60,14 +70,17 @@ class ListItemViewCell: UITableViewCell {
     private lazy var currencyValueLabel: UILabel = {
         let label = UILabel()
         label.textColor = .cardText
+        label.text = "Loading data..."
         label.font = .systemFont(ofSize: 20, weight: .bold)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
 
-    private lazy var timestamp: UILabel = {
+    private lazy var timestampLabel: UILabel = {
         let label = UILabel()
         label.textColor = .cardText
+        label.text = "--"
+        label.numberOfLines = 3
         label.font = .systemFont(ofSize: 12, weight: .light)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -75,58 +88,17 @@ class ListItemViewCell: UITableViewCell {
 
     private lazy var indicatorIcon: UIImageView = {
         let image = UIImageView(image: UIImage(systemName: "slash.circle"))
-        image.frame = CGRect(x: 0, y: 0, width: 40, height: 40)
+        image.contentMode = .scaleAspectFit
         image.tintColor = .unchanged
+        image.snp.makeConstraints { make in
+            make.width.equalTo(45)
+        }
         return image
     }()
 
-    private lazy var ammountValueLabel: UILabel = {
-        let label = UILabel()
-        label.textColor = .cardText
-        label.textAlignment = .right
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-
-    private lazy var percentageValueLabel: UILabel = {
-        let label = UILabel()
-        label.textColor = .cardText
-        label.textAlignment = .right
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-
-    private lazy var currentValueLabel: UILabel = {
-        let label = UILabel()
-        label.textColor = .cardText
-        label.textAlignment = .right
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-
-    private lazy var currentLabel: UILabel = {
-        let label = UILabel()
-        label.textColor = .cardText
-        label.text = "Current value:"
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-
-    private lazy var ammountLabel: UILabel = {
-        let label = UILabel()
-        label.textColor = .cardText
-        label.text = "Ammount changed:"
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-
-    private lazy var percentageLabel: UILabel = {
-        let label = UILabel()
-        label.textColor = .cardText
-        label.text = "Change percentage:"
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
+    private lazy var currentPriceDetail = DetailItemStackView()
+    private lazy var ammountDetail = DetailItemStackView()
+    private lazy var percentageDetail = DetailItemStackView()
 
     // MARK: - Init
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -141,32 +113,22 @@ class ListItemViewCell: UITableViewCell {
 
     // MARK: - Private functions
     private func setupViews() {
-        restartFields()
+        resetViews()
+        infoStackView.addArrangedSubview(currentPriceDetail)
+        infoStackView.addArrangedSubview(ammountDetail)
+        infoStackView.addArrangedSubview(percentageDetail)
+
         titleStackView.addArrangedSubview(currencyValueLabel)
-        titleStackView.addArrangedSubview(indicatorIcon)
-        titleStackView.addArrangedSubview(timestamp)
+        titleStackView.addArrangedSubview(timestampLabel)
 
-        mainStackView.addArrangedSubview(titleStackView)
+        contentStackView.addArrangedSubview(titleStackView)
+        contentStackView.addArrangedSubview(infoStackView)
 
-        setupLine(for: currentLabel, and: currentValueLabel)
-        setupLine(for: ammountLabel, and: ammountValueLabel)
-        setupLine(for: percentageLabel, and: percentageValueLabel)
-
-        mainStackView.addArrangedSubview(infoStackView)
+        mainStackView.addArrangedSubview(indicatorIcon)
+        mainStackView.addArrangedSubview(contentStackView)
 
         contentView.addSubview(mainStackView)
         setupConstraints()
-    }
-
-    private func setupLine(for title: UIView, and value: UIView) {
-        let lineStack = UIStackView()
-        value.contentMode = .scaleAspectFit
-        lineStack.axis = .horizontal
-        lineStack.addArrangedSubview(title)
-        lineStack.addArrangedSubview(value)
-        lineStack.distribution = .fillEqually
-
-        infoStackView.addArrangedSubview(lineStack)
     }
 
     private func setupConstraints() {
@@ -175,26 +137,51 @@ class ListItemViewCell: UITableViewCell {
         }
     }
 
-    override func prepareForReuse() {
-        super.prepareForReuse()
-        cancellable?.cancel()
-        cancellable = nil
-        restartFields()
+    private func startTimer() {
+        DispatchQueue.main.async {
+            self.timer?.invalidate()
+            self.timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false, block: { [weak self] _ in
+                self?.showError()
+            })
+        }
     }
 
-    private func restartFields() {
-        self.timestamp.text = "--"
-        self.currencyValueLabel.text = "Loading Items...."
-        self.currentValueLabel.text = "--"
-        self.ammountValueLabel.text = "--"
-        self.percentageValueLabel.text = "--"
-        self.indicatorIcon.image = UIImage(systemName: "slash.circle")
+    private func showError() {
+        timer?.invalidate()
+        timer = nil
+        indicatorIcon.image = UIImage(systemName: "exclamationmark.triangle.fill")
+        indicatorIcon.tintColor = .negative
+        currencyValueLabel.text = "Error: \(title ?? "")"
+        timestampLabel.text = "No data for the symbol. Check for spell mistakes and try again."
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        cancellables.removeAll()
+    }
+
+    private func resetViews() {
+        currencyValueLabel.text = "Loading data..."
+        currentPriceDetail.configure(title: "Current price", value: "--")
+        ammountDetail.configure(title: "Change ammount", value: "--")
+        percentageDetail.configure(title: "Change percentage", value: "--")
+        indicatorIcon.image = UIImage(systemName: "slash.circle")
+        indicatorIcon.tintColor = .unchanged
+    }
+
+    func setupCell(_ title: String) {
+        self.title = title
+        self.currencyValueLabel.text = "Loading \(title)..."
+        self.startTimer()
     }
 
     func configure(with price: PriceModel?) {
         guard let price else { return }
+        if timer != nil {
+            timer?.invalidate()
+            timer = nil
+        }
         DispatchQueue.main.async {
-            self.infoStackView.isHidden = false
             let date = Date.now
             let formatter = DateFormatter()
             formatter.dateFormat = "HH:mm:ss, d MMM y"
@@ -209,21 +196,20 @@ class ListItemViewCell: UITableViewCell {
             numberFormatter.minimumFractionDigits = 2
             numberFormatter.maximumFractionDigits = 6
 
-            self.timestamp.text = formatter.string(from: date)
+            self.timestampLabel.text = formatter.string(from: date)
             self.currencyValueLabel.text = price.symbol
 
-            self.currentValueLabel.text = if let current = currentValue {
-                numberFormatter.string(from: NSNumber(value: current))
-            } else {
-                "--"
+            if let current = currentValue, let formatted = numberFormatter.string(from: NSNumber(value: current)) {
+                self.currentPriceDetail.configure(title: "Current price", value: formatted)
             }
 
-            self.ammountValueLabel.text = if let change = priceChange {
-                numberFormatter.string(from: NSNumber(value: change))
-            } else {
-                "--"
+            if let change = priceChange, let formatted = numberFormatter.string(from: NSNumber(value: change)) {
+                self.ammountDetail.configure(title: "Change ammount", value: formatted)
             }
-            self.percentageValueLabel.text = Double(price.priceChangePercent)?.formatted(.percent) ?? 0.00.formatted(.percent)
+
+            if let formatted = Double(price.priceChangePercent)?.formatted(.percent) {
+                self.percentageDetail.configure(title: "Change percentage", value: formatted)
+            }
 
             if let currentPrice = priceChange {
                 let icon = if currentPrice == self.lastPrice {
