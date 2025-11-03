@@ -10,7 +10,7 @@ import Combine
 
 protocol ReachabilityMonitorHelperProtocol {
     typealias NetworkStatus = NetworkReachabilityManager.NetworkReachabilityStatus
-    
+
     var networkMonitor: NetworkReachabilityManager? { get }
     var networkStatus: PassthroughSubject<NetworkStatus, Never> { get }
 

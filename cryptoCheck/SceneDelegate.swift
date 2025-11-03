@@ -7,21 +7,27 @@
 
 import UIKit
 import Factory
+import Combine
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
     var coordinator: CoordinatorProtocol?
+    private var cancellable: AnyCancellable?
+
+    @Injected(\.reachabilityHelper) private var reachabilityHelper
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let winScene = (scene as? UIWindowScene) else { return }
         window = UIWindow(windowScene: winScene)
 
         let mainNavigationViewController = UINavigationController()
+        mainNavigationViewController.navigationBar.tintColor = .appText
         coordinator = AppCoordinator(navigationController: mainNavigationViewController)
         coordinator?.start()
+        reachabilityHelper.startMonitoring()
+        listenToReachability()
 
-            // Define a navigationController como a ViewController inicial
         window?.rootViewController = mainNavigationViewController
         window?.makeKeyAndVisible()
     }
@@ -48,5 +54,19 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called as the scene transitions from the foreground to the background.
         // Use this method to save data, release shared resources, and store enough scene-specific state information
         // to restore the scene back to its current state.
+    }
+
+    func listenToReachability() {
+        cancellable = reachabilityHelper
+            .networkStatus
+            .receive(on: DispatchQueue.main)
+            .sink { reachability in
+                switch reachability {
+                case .notReachable, .unknown:
+                    self.coordinator?.showOfflineMessage()
+                case .reachable:
+                    self.coordinator?.hideOfflineMessage()
+                }
+            }
     }
 }

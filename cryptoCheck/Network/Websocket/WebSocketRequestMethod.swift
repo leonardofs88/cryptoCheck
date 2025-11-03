@@ -10,4 +10,5 @@ import Foundation
 enum WebSocketRequestMethod: String, Codable {
     case subscribe
     case unsubscribe
+    case listSubscriptions
 }

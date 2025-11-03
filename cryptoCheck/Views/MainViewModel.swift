@@ -9,22 +9,27 @@ import Factory
 import Combine
 import Foundation
 
-class MainViewModel: MainViewModelProtocol {
+class MainViewModel<T: Codable>: MainViewModelProtocol {
 
     @Injected(\.webSocketManager) var webSocketManager
 
-    private weak var coordinator: CoordinatorProtocol?
+    private weak var coordinator: (any CoordinatorProtocol)?
 
     private(set) var cancellables: Set<AnyCancellable> = []
-    private(set) var sourcePublisher: PassthroughSubject<[String:PriceModel], Never> = .init()
+    private(set) var sourcePublisher: PassthroughSubject<PriceModel, Never> = .init()
 
     init() {
         listenToWebSocket()
     }
 
-    func sendMessage(for items: [String]) {
-        let symbols = items.map { $0.lowercased() + "@ticker"}
-        webSocketManager.sendMessage(with: WebSocketBody(method: .subscribe, params: symbols))
+    func sendMessage(_ method: WebSocketRequestMethod = .subscribe, for items: [String]?) {
+        let symbols: [String]? = if let items {
+            items.map { $0.lowercased() + "@ticker"}
+        } else {
+            nil
+        }
+
+        webSocketManager.sendMessage(with: WebSocketBody(method: method, params: symbols))
     }
 
     func startObsevingSocket() {
@@ -34,7 +39,7 @@ class MainViewModel: MainViewModelProtocol {
     func listenToWebSocket() {
         webSocketManager.managedItem
             .receive(on: RunLoop.main)
-            .compactMap(\.?.data)
+            .compactMap({ $0?.data })
             .sink { completion in
                 switch completion {
                 case .finished:
@@ -43,7 +48,7 @@ class MainViewModel: MainViewModelProtocol {
                     print("Error: \(error.localizedDescription)")
                 }
             } receiveValue: { [weak self] item in
-                self?.sourcePublisher.send([item.symbol:item])
+                self?.sourcePublisher.send(item)
             }
             .store(in: &cancellables)
     }

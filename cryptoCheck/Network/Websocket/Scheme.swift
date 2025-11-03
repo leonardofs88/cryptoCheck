@@ -23,10 +23,16 @@ enum Port: Int {
 }
 
 enum RequestType: String {
-    case get = "GET"
-    case post = "POST"
-    case put = "PUT"
-    case delete = "DELETE"
+    case get
+    case post
+    case put
+    case delete
+}
+
+extension RequestType {
+    var upcase: String {
+        self.rawValue.uppercased()
+    }
 }
 
 enum Endpoint: String {
