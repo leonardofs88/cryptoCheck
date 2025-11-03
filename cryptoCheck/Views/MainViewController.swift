@@ -82,14 +82,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         view.backgroundColor = .mainBackground
         navigationItem.rightBarButtonItem = editButtonItem
 
-        let tap: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(dissMissKeyboard))
-        view.addGestureRecognizer(tap)
-
         setupTableView()
-    }
-
-    @objc func dissMissKeyboard() {
-        view.endEditing(true)
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -167,6 +160,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         tableView.beginUpdates()
         tableView.insertRows(at: [IndexPath.init(row: items.count-1, section: 0)], with: .automatic)
         tableView.endUpdates()
+        view.endEditing(true)
     }
 
     // MARK: - UITableViewDelegate functions
@@ -233,7 +227,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         guard let cell = tableView.cellForRow(at: indexPath) as? ListItemViewCell else { return }
-
+        view.endEditing(true)
         if cell.selectableCell {
             viewModel.sendMessage(.unsubscribe, for: items)
             coordinator?.showDetailsView(for: items[indexPath.row])
