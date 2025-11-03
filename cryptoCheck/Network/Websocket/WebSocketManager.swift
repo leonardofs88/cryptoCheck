@@ -71,7 +71,6 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
             setupWebSocket()
             sendMessage(with: body)
         } else {
-            webSocketActionState.send(.sendingMessage)
             webSocketTask?.send(.string(bodyString)) { [weak self] error in
                 guard let self else { return }
                 if let error {
@@ -125,8 +124,6 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                     print(":::", #function, "===>> CONNECTION IS ESTABLISHED ||")
                 case .tryingConnection:
                     print(":::", #function, "===>> TRYING CONNECTION ||")
-                case .sendingMessage:
-                    print(":::", #function, "===>> SENDING MESSAGE ||")
                 case .messageSent:
                     print(":::", #function, "===>> MESSAGE SENT ||")
                 case .errorSendingMessage(let error):
@@ -274,7 +271,6 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
 enum WebSocketActionState: Hashable {
     case tryingConnection
     case connected
-    case sendingMessage
     case messageSent
     case errorSendingMessage(WebSocketError)
     case closed
