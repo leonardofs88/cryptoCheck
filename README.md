@@ -25,11 +25,11 @@ For helping the app development, this project uses four external libraries.
 
 ### Swiftlint
 
-This library is responsible to give warnings on the IDE for keeping the code clean and maintanable. You can check more in [SwiftLint](https://github.com/realm/SwiftLint)
+This library is responsible to give warnings on the IDE for keeping the code clean and maintanable with linting. You can check more in [SwiftLint](https://github.com/realm/SwiftLint)
 
 ### Factory
 
-For helping with dependency injection, the project uses Factory. It uses the container approach with easy application, testable and also with support for SwiftUI. More information at [Factory](https://github.com/hmlongco/Factory)
+For helping with dependency injection, this project uses Factory. It uses the container approach with easy application, testable and also with support for SwiftUI. More information at [Factory](https://github.com/hmlongco/Factory)
 
 ### SnapKit
 
@@ -37,7 +37,7 @@ Usualy used to help with View Code. For more info, [SnapKit](https://github.com/
 
 ### Alamofire
 
-Good alternative for URLSessions, in the project, was used to check app's reachability. For more, check in [Alamofire](https://github.com/Alamofire/Alamofire)
+As a good alternative for URLSessions, Alamofire was used in the project to check app's reachability, since NWPath doesn't check out clearly with simulators, hence, for harder for automatizing tests. For more, check at [Alamofire](https://github.com/Alamofire/Alamofire)
 
 ## Native Libraries
 
@@ -135,12 +135,14 @@ struct PriceModel: Codable, Identifiable {
 }
 ```
 
+For other usage, I used AI to diminish time on finding things as I consider technical debts, like binding the data source that uses combine to the displayed data on table view, which idea was used, but all the implementation differ from the one that the prompt result has given.
+
+Also, the app used AI generated images for aesthetic improvements (designers, please, don't hate me).
 
 # Conclusion
 
-I'd like to thank you for the challenge. I regret that I had many technical issues and due to the complexity of the code, I wish I could have done more testing and fixing issues with the websocket, as well as creating a much better UI. 
+Again, I'd like to thank you for the challenge. I hope that these changes are good enough for a good evaluation from the team.
 
-Finally, I hope that what I've done is good enough, because I had a really good time!
 
 My contacts are:
 
