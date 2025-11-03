@@ -26,6 +26,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
     @LazyInjected(\.mainViewModel) private(set) var viewModel
 
     // MARK: - UI ITEMS
+    
     private lazy var tableView = UITableView()
 
     private lazy var textField: UITextField = {
@@ -74,6 +75,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - UIViewController lifecycle
+
     override func viewDidLoad() {
         super.viewDidLoad()
 

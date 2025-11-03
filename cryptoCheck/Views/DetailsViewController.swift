@@ -57,6 +57,8 @@ class DetailsViewController: UIViewController {
     private lazy var highPriceDetail = DetailItemStackView()
     private lazy var lowPriceDetail = DetailItemStackView()
 
+    // MARK: - UIViewController lifecycle
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .mainBackground
@@ -83,6 +85,8 @@ class DetailsViewController: UIViewController {
         }
     }
 
+    // MARK: - Public functions
+
     func setCoordinator(_ coordinator: CoordinatorProtocol) {
         self.coordinator = coordinator
     }
@@ -92,6 +96,7 @@ class DetailsViewController: UIViewController {
 
     }
 
+    // MARK: - Private functions
     private func listenToChanges() {
         cancellable = mainViewModel.sourcePublisher
             .receive(on: DispatchQueue.main)

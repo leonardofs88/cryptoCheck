@@ -112,66 +112,14 @@ class ListItemViewCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
-    // MARK: - Private functions
-    private func setupViews() {
-        resetViews()
-        infoStackView.addArrangedSubview(currentPriceDetail)
-        infoStackView.addArrangedSubview(ammountDetail)
-        infoStackView.addArrangedSubview(percentageDetail)
-
-        titleStackView.addArrangedSubview(currencyValueLabel)
-        titleStackView.addArrangedSubview(timestampLabel)
-
-        contentStackView.addArrangedSubview(titleStackView)
-        contentStackView.addArrangedSubview(infoStackView)
-
-        mainStackView.addArrangedSubview(indicatorIcon)
-        mainStackView.addArrangedSubview(contentStackView)
-
-        contentView.addSubview(mainStackView)
-        setupConstraints()
-    }
-
-    private func setupConstraints() {
-        mainStackView.snp.makeConstraints { make in
-            make.edges.equalToSuperview().inset(15)
-        }
-    }
-
-    private func startTimer() {
-        DispatchQueue.main.async {
-            self.timer?.invalidate()
-            self.timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false, block: { [weak self] _ in
-                self?.showError()
-            })
-        }
-    }
-
-    private func showError() {
-        timer?.invalidate()
-        timer = nil
-        indicatorIcon.image = UIImage(systemName: "exclamationmark.triangle.fill")
-        indicatorIcon.tintColor = .negative
-        currencyValueLabel.text = "Error: \(title ?? "")"
-        timestampLabel.text = "No data for the symbol. Check for spell mistakes and try again."
-        selectableCell = false
-    }
-
+    // MARK: - Reusable functions
     override func prepareForReuse() {
         super.prepareForReuse()
         cancellable?.cancel()
         resetViews()
     }
 
-    private func resetViews() {
-        currencyValueLabel.text = "Loading data..."
-        currentPriceDetail.configure(title: "Current price", value: "--")
-        ammountDetail.configure(title: "Change ammount", value: "--")
-        percentageDetail.configure(title: "Change percentage", value: "--")
-        indicatorIcon.image = UIImage(systemName: "slash.circle")
-        indicatorIcon.tintColor = .unchanged
-        selectableCell = false
-    }
+    // MARK: - Public functions
 
     func setupCell(_ title: String) {
         self.title = title
@@ -181,10 +129,12 @@ class ListItemViewCell: UITableViewCell {
 
     func configure(with price: PriceModel?) {
         guard let price else { return }
+
         if timer != nil {
             timer?.invalidate()
             timer = nil
         }
+        
         DispatchQueue.main.async {
             self.selectableCell = true
             let date = Date.now
@@ -234,5 +184,60 @@ class ListItemViewCell: UITableViewCell {
                 self.lastPrice = currentPrice
             }
         }
+    }
+
+    // MARK: - Private functions
+    private func setupViews() {
+        resetViews()
+        infoStackView.addArrangedSubview(currentPriceDetail)
+        infoStackView.addArrangedSubview(ammountDetail)
+        infoStackView.addArrangedSubview(percentageDetail)
+
+        titleStackView.addArrangedSubview(currencyValueLabel)
+        titleStackView.addArrangedSubview(timestampLabel)
+
+        contentStackView.addArrangedSubview(titleStackView)
+        contentStackView.addArrangedSubview(infoStackView)
+
+        mainStackView.addArrangedSubview(indicatorIcon)
+        mainStackView.addArrangedSubview(contentStackView)
+
+        contentView.addSubview(mainStackView)
+        setupConstraints()
+    }
+
+    private func setupConstraints() {
+        mainStackView.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(15)
+        }
+    }
+
+    private func startTimer() {
+        DispatchQueue.main.async {
+            self.timer?.invalidate()
+            self.timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false, block: { [weak self] _ in
+                self?.showError()
+            })
+        }
+    }
+
+    private func showError() {
+        timer?.invalidate()
+        timer = nil
+        indicatorIcon.image = UIImage(systemName: "exclamationmark.triangle.fill")
+        indicatorIcon.tintColor = .negative
+        currencyValueLabel.text = "Error: \(title ?? "")"
+        timestampLabel.text = "No data for the symbol. Check for spell mistakes and try again."
+        selectableCell = false
+    }
+
+    private func resetViews() {
+        currencyValueLabel.text = "Loading data..."
+        currentPriceDetail.configure(title: "Current price", value: "--")
+        ammountDetail.configure(title: "Change ammount", value: "--")
+        percentageDetail.configure(title: "Change percentage", value: "--")
+        indicatorIcon.image = UIImage(systemName: "slash.circle")
+        indicatorIcon.tintColor = .unchanged
+        selectableCell = false
     }
 }
