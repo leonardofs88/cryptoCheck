@@ -12,20 +12,21 @@ import Combine
 
 class ListItemViewCell: UITableViewCell {
 
-    lazy var cancellables = Set<AnyCancellable>()
+    var cancellable: AnyCancellable?
 
     private let inset: CGFloat = 15
 
     private var lastPrice: Double = 0.0
-    private var title: String?
+     var title: String?
     private var timer: Timer?
+    private(set) var selectableCell = false
 
     // MARK: - UI Items
 
     private lazy var mainStackView: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .horizontal
-        stackView.distribution = .equalSpacing
+        stackView.distribution = .fillProportionally
         stackView.spacing = 0
         stackView.isLayoutMarginsRelativeArrangement = true
         stackView.layoutMargins = UIEdgeInsets(top: 5, left: 5, bottom: 5, right: 5)
@@ -153,11 +154,13 @@ class ListItemViewCell: UITableViewCell {
         indicatorIcon.tintColor = .negative
         currencyValueLabel.text = "Error: \(title ?? "")"
         timestampLabel.text = "No data for the symbol. Check for spell mistakes and try again."
+        selectableCell = false
     }
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        cancellables.removeAll()
+        cancellable?.cancel()
+        resetViews()
     }
 
     private func resetViews() {
@@ -167,6 +170,7 @@ class ListItemViewCell: UITableViewCell {
         percentageDetail.configure(title: "Change percentage", value: "--")
         indicatorIcon.image = UIImage(systemName: "slash.circle")
         indicatorIcon.tintColor = .unchanged
+        selectableCell = false
     }
 
     func setupCell(_ title: String) {
@@ -182,6 +186,7 @@ class ListItemViewCell: UITableViewCell {
             timer = nil
         }
         DispatchQueue.main.async {
+            self.selectableCell = true
             let date = Date.now
             let formatter = DateFormatter()
             formatter.dateFormat = "HH:mm:ss, d MMM y"

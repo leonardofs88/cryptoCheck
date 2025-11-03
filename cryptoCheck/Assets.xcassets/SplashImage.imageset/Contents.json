@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "ChatGPT Image 2 de nov. de 2025, 18_50_30.png",
+      "filename" : "ChatGPT Image 3 de nov. de 2025, 15_25_02.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "ChatGPT Image 2 de nov. de 2025, 18_50_30 1.png",
+      "filename" : "ChatGPT Image 3 de nov. de 2025, 15_25_02 1.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "ChatGPT Image 2 de nov. de 2025, 18_50_30 2.png",
+      "filename" : "ChatGPT Image 3 de nov. de 2025, 15_25_02 2.png",
       "idiom" : "universal",
       "scale" : "3x"
     }
@@ -19,8 +19,5 @@
   "info" : {
     "author" : "xcode",
     "version" : 1
-  },
-  "properties" : {
-    "template-rendering-intent" : "template"
   }
 }

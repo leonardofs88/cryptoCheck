@@ -37,6 +37,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         field.backgroundColor = .clear
         field.tintColor = .appText
         field.translatesAutoresizingMaskIntoConstraints = false
+        field.clearButtonMode = .whileEditing
         return field
     }()
 
@@ -70,7 +71,7 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         }
     }
 
-    private lazy var cancellables = Set<AnyCancellable>()
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - UIViewController lifecycle
     override func viewDidLoad() {
@@ -79,7 +80,14 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         view.backgroundColor = .mainBackground
         navigationItem.rightBarButtonItem = editButtonItem
 
+        let tap: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(dissMissKeyboard))
+        view.addGestureRecognizer(tap)
+
         setupTableView()
+    }
+
+    @objc func dissMissKeyboard() {
+        view.endEditing(true)
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -163,13 +171,19 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
 
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
+            guard let cell = tableView.dequeueReusableCell(
+                withIdentifier: "ListItemViewCell",
+                for: indexPath
+            ) as? ListItemViewCell else {
+                return
+            }
             DispatchQueue.main.async {
+                cell.cancellable?.cancel()
                 self.viewModel.sendMessage(.unsubscribe, for: [self.items[indexPath.row]])
                 self.items.remove(at: indexPath.row)
                 tableView.beginUpdates()
                 tableView.deleteRows(at: [indexPath], with: .left)
                 tableView.endUpdates()
-                tableView.endEditing(true)
             }
         }
     }
@@ -187,17 +201,17 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
         }
 
         cell.setupCell(items[indexPath.row])
+        cell.cancellable?.cancel()
 
-        viewModel.sourcePublisher
+        cell.cancellable = viewModel.sourcePublisher
             .receive(on: DispatchQueue.main)
             .filter({ [weak self] item in
                 guard let self, !isEditing, items.indices.contains(indexPath.row) else { return false }
-                return item.symbol == items[indexPath.row]
+                return item.symbol == cell.title
             })
             .sink(receiveValue: { value in
                 cell.configure(with: value)
             })
-            .store(in: &cell.cancellables)
 
         return cell
     }
@@ -216,8 +230,12 @@ class MainViewController<T: Codable>: UIViewController, MainViewControllerProtoc
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        viewModel.sendMessage(.unsubscribe, for: items)
-        coordinator?.showDetailsView(for: items[indexPath.row])
+        guard let cell = tableView.cellForRow(at: indexPath) as? ListItemViewCell else { return }
+
+        if cell.selectableCell {
+            viewModel.sendMessage(.unsubscribe, for: items)
+            coordinator?.showDetailsView(for: items[indexPath.row])
+        }
     }
 
     // MARK: - UITextFieldDelegate

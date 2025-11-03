@@ -16,7 +16,7 @@ protocol WebSocketManagerProtocol<T>: URLSessionWebSocketDelegate {
     var cancellables: Set<AnyCancellable> { get }
     var session: URLSession { get }
     var webSocketTask: URLSessionWebSocketTask? { get }
-    var lastMessage: URLSessionWebSocketTask.Message? { get }
+    var lastMessageSent: WebSocketBody? { get }
     var managedItem: PassthroughSubject<T?, WebSocketError> { get }
     var webSocketActionState: CurrentValueSubject<WebSocketActionState, Never> { get }
     var endpoint: Endpoint { get }

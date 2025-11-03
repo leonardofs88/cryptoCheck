@@ -14,6 +14,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
     let endpoint: Endpoint
 
     private(set) var webSocketRequest: WebSocketRequest?
+    private(set) var lastMessageSent: WebSocketBody?
 
     @LazyInjected(\.reachabilityHelper) private(set) var reachabilityHelper
 
@@ -21,7 +22,6 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
     private(set) lazy var session: URLSession = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
 
     private(set) var webSocketTask: URLSessionWebSocketTask?
-    private(set) var lastMessage: URLSessionWebSocketTask.Message?
     private(set) var managedItem: PassthroughSubject<T?, WebSocketError> = .init()
     private(set) var webSocketActionState: CurrentValueSubject<WebSocketActionState, Never> = .init(.closed)
     private(set) var timer: Timer?
@@ -90,6 +90,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                 }
 
                 retrySendCount = 0
+                self.lastMessageSent = body
                 webSocketActionState.send(.messageSent)
                 receiveMessage()
             }
@@ -137,6 +138,7 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
 
     private func observeReachability() {
         print(":::", #function, "===>> START OBSERVING CONNECTION MONITOR ||")
+        reachabilityHelper.startMonitoring()
         reachabilityHelper
             .networkStatus
             .receive(on: DispatchQueue.main)
@@ -150,6 +152,10 @@ class WebSocketManager<T: Codable>: NSObject, WebSocketManagerProtocol {
                     print(":::", #function, "===>> CONNECTION MONITOR REACHABLE ||")
                     self.retrySendCount = 0
                     self.retryConnectCount = 0
+                    if self.webSocketActionState.value == .closed, let lastMessageSent = self.lastMessageSent {
+                        self.setupWebSocket()
+                        self.sendMessage(with: lastMessageSent)
+                    }
                 }
             }
             .store(in: &cancellables)
