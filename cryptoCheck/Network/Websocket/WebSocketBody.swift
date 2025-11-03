@@ -9,11 +9,11 @@ import Foundation
 
 struct WebSocketBody: Codable, Identifiable {
     let method: String
-    let params: [String]
+    let params: [String]?
     let id: String
 
-    init(method: WebSocketRequestMethod, params: [String]) {
-        self.method = method.rawValue.uppercased()
+    init(method: WebSocketRequestMethod, params: [String]? = nil) {
+        self.method = method.rawValue.snakeCased.uppercased()
         self.params = params
         id = UUID().uuidString
     }

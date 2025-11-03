@@ -14,29 +14,39 @@ class AppCoordinator: CoordinatorProtocol {
 
     var navigationController: UINavigationController
 
+    let offlineAlert = UIAlertController(title: "It seems that we are offline",
+                                  message: "Please, check your internet connection and wait to reconnect.",
+                                  preferredStyle: .alert)
+
     init(navigationController: UINavigationController) {
         self.navigationController = navigationController
     }
 
     func start() {
-        let initialViewController = MainViewController()
+        let initialViewController = MainViewController<PriceModel>()
         initialViewController.setCoordinator(self)
         children.append(initialViewController)
         navigationController.pushViewController(initialViewController, animated: true)
     }
 
-    func showDetailsView(with data: PriceModel) {
+    func showDetailsView(for symbol: String) {
         let detailsViewController = DetailsViewController()
-        detailsViewController.setData(price: data)
-        detailsViewController.setCoordinator(self)
         children.append(detailsViewController)
+        detailsViewController.setData(symbol: symbol)
         navigationController.pushViewController(detailsViewController, animated: true)
     }
 
     func pop() {
-        let popLast = children.popLast()
-        if let popLast {
+        if children.popLast() != nil {
             navigationController.popViewController(animated: true)
         }
+    }
+
+    func showOfflineMessage() {
+        navigationController.present(offlineAlert, animated: true)
+    }
+
+    func hideOfflineMessage() {
+        offlineAlert.dismiss(animated: true)
     }
 }

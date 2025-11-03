@@ -9,5 +9,10 @@ import Foundation
 
 struct WebSocketErrorMessage: Codable {
     let code: Int
-    let msg: String
+    let message: String
+
+    enum CodingKeys: String, CodingKey {
+        case code
+        case message = "msg"
+    }
 }

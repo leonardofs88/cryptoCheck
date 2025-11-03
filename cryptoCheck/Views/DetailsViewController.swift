@@ -16,6 +16,8 @@ class DetailsViewController: UIViewController {
 
     private weak var coordinator: CoordinatorProtocol?
 
+    private var symbol: String?
+
     private var price: PriceModel? {
         didSet {
             DispatchQueue.main.async {
@@ -23,102 +25,147 @@ class DetailsViewController: UIViewController {
             }
         }
     }
-    private lazy var cancellables: Set<AnyCancellable> = []
+    private var cancellable: AnyCancellable?
+
+    private lazy var numberFormatter: NumberFormatter = {
+        let numberFormatter = NumberFormatter()
+        numberFormatter.numberStyle = .currency
+        numberFormatter.locale = Locale.current
+        numberFormatter.minimumFractionDigits = 2
+        numberFormatter.maximumFractionDigits = 6
+        return numberFormatter
+    }()
 
     // MARK: - UI Components
 
-    private let containerStackView: UIStackView = {
+    private lazy var containerStackView: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .vertical
-        stackView.distribution = .fillEqually
-        stackView.spacing = 8
+        stackView.spacing = 15
+        stackView.distribution = .equalSpacing
         stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.isLayoutMarginsRelativeArrangement = true
+        stackView.layoutMargins = UIEdgeInsets(top: 15, left: 15, bottom: 15, right: 15)
         return stackView
     }()
 
-    private let nameDetail = DetailItem()
-    private let lastPriceDetail = DetailItem()
-    private let priceChangeDetail = DetailItem()
-    private let priceChangePercentDetail = DetailItem()
-    private let openPriceDetail = DetailItem()
-    private let highPriceDetail = DetailItem()
-    private let lowPriceDetail = DetailItem()
+    private lazy var nameDetail = DetailItemStackView()
+    private lazy var lastPriceDetail = DetailItemStackView()
+    private lazy var priceChangeDetail = DetailItemStackView()
+    private lazy var priceChangePercentDetail = DetailItemStackView()
+    private lazy var openPriceDetail = DetailItemStackView()
+    private lazy var highPriceDetail = DetailItemStackView()
+    private lazy var lowPriceDetail = DetailItemStackView()
+
+    // MARK: - UIViewController lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        navigationItem.title = price?.symbol.uppercased()
         view.backgroundColor = .mainBackground
         setupViews()
+        listenToChanges()
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        listenToData()
+        mainViewModel.startObsevingSocket()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        mainViewModel.webSocketManager.disconnect("Changing View", withRetry: false)
+        if let symbol = price?.symbol {
+            mainViewModel.sendMessage(.unsubscribe, for: [symbol])
+        }
     }
 
-    private func listenToData() {
-        mainViewModel.sourcePublisher
-            .receive(on: RunLoop.main)
-            .map { dict in
-                dict.values.filter { $0.symbol == self.price?.symbol }
-            }
-            .sink { item in
-                self.price = item.first
-            }
-            .store(in: &cancellables)
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if let symbol {
+            mainViewModel.sendMessage(.subscribe, for: [symbol])
+        }
     }
+
+    // MARK: - Public functions
 
     func setCoordinator(_ coordinator: CoordinatorProtocol) {
         self.coordinator = coordinator
     }
 
-    func setData(price: PriceModel) {
-        self.price = price
-        mainViewModel.startObsevingSocket()
-        mainViewModel.sendMessage(for: [price.symbol])
+    func setData(symbol: String) {
+        self.symbol = symbol
+
+    }
+
+    // MARK: - Private functions
+    private func listenToChanges() {
+        cancellable = mainViewModel.sourcePublisher
+            .receive(on: DispatchQueue.main)
+            .filter({
+                $0.symbol == self.symbol
+            })
+            .sink { [weak self] fetchedItem in
+                guard let self, !isEditing else { return }
+                DispatchQueue.main.async {
+                    self.price = fetchedItem
+                }
+            }
     }
 
     private func updateViews() {
-        nameDetail.configure(title: "Symbol", value: price?.symbol ?? "Not available")
 
-        lastPriceDetail.configure(
-            title: "Last Price",
-            value: Double(price?.lastPrice ?? "")?.formatted(.currency(code: "USD")) ?? "Not available"
-        )
+        navigationItem.title = price?.symbol.uppercased()
 
-        priceChangeDetail.configure(
-            title: "Ammount changed",
-            value: Double(price?.priceChange ?? "")?.formatted(.currency(code: "USD")) ?? "Not available"
-        )
+        nameDetail.configure(title: "Symbol", value: price?.symbol ?? "Loading data...")
 
-        priceChangePercentDetail.configure(
-            title: "Ammount changed percent",
-            value: Double(price?.priceChangePercent ?? "")?.formatted(.percent) ?? "Not available"
-        )
+        if let lastPrice = Double(price?.lastPrice ?? ""), let formated = numberFormatter.string(from: NSNumber(value: lastPrice)) {
+            lastPriceDetail.configure(
+                title: "Last Price",
+                value: formated
+            )
+        }
 
-        openPriceDetail.configure(
-            title: "Open price",
-            value: Double(
-                price?.openPrice ?? ""
-            )?.formatted(.currency(code: "USD")) ?? "Not available"
-        )
+        if let priceChange = Double(price?.priceChange ?? ""), let formated = numberFormatter.string(
+            from: NSNumber(value: priceChange)
+        ) {
+            priceChangeDetail.configure(
+                title: "Ammount changed",
+                value: formated
+            )
+        }
 
-        highPriceDetail.configure(
-            title: "Highest price",
-            value: Double(
-                price?.highPrice ?? ""
-            )?.formatted(.currency(code: "USD")) ?? "Not available"
-        )
+        if let priceChangePercent = price?.priceChangePercent, let formatted = Double(priceChangePercent)?.formatted(.percent) {
+            priceChangePercentDetail.configure(
+                title: "Ammount changed percent",
+                value:  formatted
+            )
+        }
 
-        lowPriceDetail.configure(
-            title: "Lowest price",
-            value: Double(price?.lowPrice ?? "")?.formatted(.currency(code: "USD")) ?? "Not available"
-        )
+        if let openPrice = Double(price?.openPrice ?? ""), let formated = numberFormatter.string(
+            from: NSNumber(value: openPrice)
+        ) {
+            openPriceDetail.configure(
+                title: "Open price",
+                value: formated
+            )
+        }
+
+        if let highPrice = Double(price?.highPrice ?? ""), let formated = numberFormatter.string(
+            from: NSNumber(value: highPrice)
+        ) {
+            highPriceDetail.configure(
+                title: "Highest price",
+                value: formated
+            )
+        }
+
+        if let lowPrice = Double(price?.lowPrice ?? ""), let formated = numberFormatter.string(
+            from: NSNumber(value: lowPrice)
+        ) {
+            lowPriceDetail.configure(
+                title: "Lowest price",
+                value: formated
+            )
+        }
     }
 
     private func setupViews() {
@@ -140,59 +187,14 @@ class DetailsViewController: UIViewController {
         containerStackView.addArrangedSubview(lowPriceDetail)
 
         containerStackView.snp.makeConstraints { make in
-            make.edges.equalTo(view.safeAreaLayoutGuide).inset(20)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).inset(15)
+            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing).inset(15)
+            make.leading.equalTo(view.safeAreaLayoutGuide.snp.leading).inset(15)
         }
-    }
-}
 
-class DetailItem: UIView {
+        containerStackView.backgroundColor = .cardBackground
+        containerStackView.layer.cornerRadius = 12
 
-    private let titleLabel: UILabel = {
-        let label = UILabel()
-        label.font = .systemFont(ofSize: 17, weight: .bold)
-        return label
-    }()
-
-    private let valueLabel: UILabel = {
-        let label = UILabel()
-        label.font = .systemFont(ofSize: 17, weight: .semibold)
-        return label
-    }()
-
-    private let mainStackView = {
-        let stackView = UIStackView()
-        stackView.axis = .horizontal
-        stackView.distribution = .fillEqually
-        stackView.spacing = 8
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        return stackView
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupViews() {
-        mainStackView.addArrangedSubview(titleLabel)
-        mainStackView.addArrangedSubview(valueLabel)
-        addSubview(mainStackView)
-
-        mainStackView.snp.makeConstraints { make in
-            make.top.equalToSuperview()
-            make.bottom.equalToSuperview()
-            make.leading.equalToSuperview()
-            make.trailing.equalToSuperview()
-        }
-    }
-
-    func configure(title: String, value: String) {
-        titleLabel.text = title
-        valueLabel.text = value
-        setupViews()
-        layoutIfNeeded()
+        updateViews()
     }
 }
